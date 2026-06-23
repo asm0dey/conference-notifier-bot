@@ -10,6 +10,7 @@ h2 = "2.3.232"
 hikari = "7.1.0"
 slf4j = "2.0.16"
 kotest = "6.2.1"
+graalvm-native = "0.11.3"
 
 [libraries]
 telegram-bot = { module = "eu.vendeli:telegram-bot", version.ref = "telegrambot" }
@@ -29,3 +30,4 @@ kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref =
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-native" }

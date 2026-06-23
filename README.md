@@ -52,3 +52,45 @@ after a CFP was already seen open will not receive that CFP's "opened" message, 
 still get the daily reminders during its final week.
 
 Run the tests with `./gradlew test`.
+
+## Native image (GraalVM)
+
+Build a standalone native executable (starts fast, no JVM needed to run). Requires a
+GraalVM-capable JDK — e.g. [Liberica NIK](https://bell-sw.com/liberica-native-image-kit/)
+(`sdk install java 25.0.3.r25-nik`). The build reads `GRAALVM_HOME`/`JAVA_HOME`
+(`graalvmNative { toolchainDetection = false }`):
+
+```bash
+GRAALVM_HOME=/path/to/liberica-nik ./gradlew nativeCompile
+```
+
+Output: `build/native/nativeCompile/cfpbot` (~86 MB). Run it like the jar — same env vars:
+
+```bash
+set -a; . ./.env; set +a            # load BOT_TOKEN without printing it
+DB_PATH=./data/cfpbot ./build/native/nativeCompile/cfpbot
+```
+
+Verified in the native image: boot, H2 + HikariCP, db-scheduler init, KSP command
+registration (`/start`, `/check`), and long-polling all run cleanly.
+
+### Reachability metadata
+
+GraalVM needs reflection/serialization hints for telegram-bot's runtime serializer
+lookups. They live in `src/main/resources/META-INF/native-image/cfpbot/reachability-metadata.json`,
+captured with the native-image tracing agent and committed. This covers the startup +
+long-poll paths. The **inbound `/start` / `/check` handling and outbound message-send
+paths were not exercised when the metadata was captured** (they need a live Telegram
+interaction), so the first time you use them in the native binary you may hit a
+`Serializer ... not found` / reflection error. If so, top up the metadata by running the
+JVM app under the agent while actually using the bot, then rebuild:
+
+```bash
+./gradlew installDist
+set -a; . ./.env; set +a
+JAVA_HOME=/path/to/liberica-nik \
+JAVA_OPTS="-agentlib:native-image-agent=config-merge-dir=src/main/resources/META-INF/native-image/cfpbot" \
+  build/install/conference-notifier-bot/bin/conference-notifier-bot
+# DM the bot /start and /check (and post in a channel), then Ctrl-C
+GRAALVM_HOME=/path/to/liberica-nik ./gradlew nativeCompile
+```
