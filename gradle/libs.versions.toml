@@ -4,13 +4,13 @@ ksp = "2.3.9"
 telegrambot = "9.5.0"
 ktor = "3.5.0"
 serialization = "1.11.0"
-coroutines = "1.10.2"
+coroutines = "1.11.0"
 dbscheduler = "16.12.0"
-h2 = "2.3.232"
+h2 = "2.4.240"
 hikari = "7.1.0"
 slf4j = "2.0.18"
 kotest = "6.2.1"
-graalvm-native = "0.11.5"
+graalvm-native = "1.1.2"
 
 [libraries]
 telegram-bot = { module = "eu.vendeli:telegram-bot", version.ref = "telegrambot" }
