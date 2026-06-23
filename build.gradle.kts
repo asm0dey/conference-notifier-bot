@@ -28,7 +28,9 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(21)
+    // Default JDK 21; override with -PjdkVersion=25 so the Docker build can compile on the
+    // NIK 25 container's own JDK (no second toolchain to provision).
+    jvmToolchain((providers.gradleProperty("jdkVersion").orNull ?: "21").toInt())
 }
 
 application {

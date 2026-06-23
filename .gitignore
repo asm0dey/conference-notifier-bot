@@ -8,3 +8,4 @@ data/
 # Secrets — never commit
 .env
 .env.*
+.envrc

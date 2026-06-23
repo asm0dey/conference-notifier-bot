@@ -1,0 +1,15 @@
+services:
+  cfpbot:
+    build: .
+    image: cfpbot:native
+    # Load BOT_TOKEN (and any overrides) from your local .env — never baked into the image.
+    env_file: .env
+    # Run as the host user so DB files on the bind mount are owned by you (not root).
+    # `id -u`/`id -g` resolve from your shell environment.
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      # Host dir (left) holds the H2 database; must be writable by your user.
+      # Override the host path with DB_DIR=/somewhere docker compose up.
+      - "${DB_DIR:-./data}:/data"
+    # DB_PATH defaults to /data/cfpbot inside the container (set in the image).
+    restart: unless-stopped
