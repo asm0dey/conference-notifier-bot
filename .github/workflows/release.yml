@@ -38,16 +38,15 @@ jobs:
         with:
           fetch-depth: 0   # need full tag history to compute the next version
 
-      - name: Compute next version (patch bump from the latest v-tag)
+      - name: Compute next version (single incrementing integer)
         run: |
           git fetch --tags --force
-          latest="$(git tag -l 'v*' --sort=-v:refname | head -n1)"
+          # Only consider plain integer tags (vN); ignore any older semver-style tags.
+          latest="$(git tag -l 'v*' | grep -E '^v[0-9]+$' | sort -V | tail -n1)"
           if [ -z "$latest" ]; then
-            next="0.1.0"
+            next=1
           else
-            v="${latest#v}"
-            IFS=. read -r major minor patch <<< "$v"
-            next="${major}.${minor}.$((patch + 1))"
+            next=$(( ${latest#v} + 1 ))
           fi
           echo "VERSION=$next" >> "$GITHUB_ENV"
           echo "TAG=v$next" >> "$GITHUB_ENV"
