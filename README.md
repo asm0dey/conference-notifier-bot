@@ -206,3 +206,7 @@ the repo's package settings if you want it pullable anonymously.
 
 Kotlin 2.3 / JDK 21 · Gradle (Kotlin DSL) · [vendelieu/telegram-bot](https://github.com/vendelieu/telegram-bot)
 + KSP · Ktor client · kotlinx-serialization · H2 + HikariCP · db-scheduler · Kotest · GraalVM native-image.
+
+## License
+
+[0BSD](LICENSE) (BSD Zero Clause) — do anything you like, no attribution required, no warranty.
