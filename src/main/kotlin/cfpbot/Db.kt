@@ -25,6 +25,16 @@ private val SCHEMA = listOf(
         last_daily_reminder DATE
     )
     """.trimIndent(),
+    """
+    CREATE TABLE IF NOT EXISTS send_queue (
+        id IDENTITY PRIMARY KEY,
+        chat_id BIGINT NOT NULL,
+        text CLOB NOT NULL,
+        lat DOUBLE PRECISION,
+        lon DOUBLE PRECISION,
+        attempts INT NOT NULL DEFAULT 0
+    )
+    """.trimIndent(),
     // db-scheduler 16.x table (H2-compatible). The `priority` column + indexes
     // were added in db-scheduler 16 — canonical schema from the 16.x release.
     """
