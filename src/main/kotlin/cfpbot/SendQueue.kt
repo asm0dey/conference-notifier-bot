@@ -77,6 +77,47 @@ class SendQueueRepository(private val ds: DataSource) {
         }
     }
 
+    // Remove and return all remaining rows for a specific chat (used when backing off a failing chat).
+    fun drainChat(chatId: Long): List<QueuedItem> {
+        val items = mutableListOf<QueuedItem>()
+        ds.connection.use { conn ->
+            conn.autoCommit = false
+            try {
+                conn.prepareStatement(
+                    "SELECT id, chat_id, text, lat, lon, attempts FROM send_queue WHERE chat_id = ? ORDER BY id FOR UPDATE SKIP LOCKED",
+                ).use { ps ->
+                    ps.setLong(1, chatId)
+                    ps.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            items += QueuedItem(
+                                id = rs.getLong("id"),
+                                chatId = rs.getLong("chat_id"),
+                                text = rs.getString("text"),
+                                lat = (rs.getObject("lat") as? Number)?.toDouble(),
+                                lon = (rs.getObject("lon") as? Number)?.toDouble(),
+                                attempts = rs.getInt("attempts"),
+                            )
+                        }
+                    }
+                }
+                if (items.isNotEmpty()) {
+                    val ids = items.joinToString(",") { "?" }
+                    conn.prepareStatement("DELETE FROM send_queue WHERE id IN ($ids)").use { del ->
+                        items.forEachIndexed { i, item -> del.setLong(i + 1, item.id) }
+                        del.executeUpdate()
+                    }
+                }
+                conn.commit()
+            } catch (e: Exception) {
+                conn.rollback()
+                throw e
+            } finally {
+                conn.autoCommit = true
+            }
+        }
+        return items
+    }
+
     fun count(): Int =
         ds.connection.use { conn ->
             conn.createStatement().use { st ->
