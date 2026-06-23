@@ -189,18 +189,17 @@ UID=$(id -u) GID=$(id -g) DB_DIR=./data docker compose up --build
 ## CI & releases
 
 - **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `./gradlew test` on every
-  push to `main` and on pull requests.
-- **Release** ([`.github/workflows/release.yml`](.github/workflows/release.yml)) triggers on a
-  `vX.Y.Z` tag: it builds and pushes the Docker image to `ghcr.io/<owner>/<repo>` and creates a
-  GitHub Release with auto-generated notes and the native Linux binary attached.
+  pull request.
+- **Release** ([`.github/workflows/release.yml`](.github/workflows/release.yml)) runs on **every
+  push to `main`**: it runs the tests, then (only if green) patch-bumps the version from the
+  latest `vX.Y.Z` tag (first release is `v0.1.0`), builds and pushes the Docker image to
+  `ghcr.io/<owner>/<repo>` tagged with **both `X.Y.Z` and `latest`**, and publishes a GitHub
+  Release — tagged `vX.Y.Z`, with auto-generated notes and the native Linux binary attached.
 
-  ```bash
-  git tag v1.0.0 && git push origin v1.0.0
-  ```
-
-The workflows activate once the repo is pushed to GitHub. Publishing uses the built-in
-`GITHUB_TOKEN` (no extra secrets); the ghcr package may start out private — make it public in
-the repo's package settings if you want it pullable anonymously.
+Publishing uses the built-in `GITHUB_TOKEN` (no extra secrets). The ghcr package may start out
+private — make it public in the repo's package settings to pull anonymously. Since every `main`
+push publishes (docs included), add `paths-ignore` to the release workflow if you want to skip
+docs-only changes.
 
 ## Tech stack
 

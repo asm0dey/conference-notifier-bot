@@ -1,19 +1,57 @@
 name: Release
 
-# Cut a release by pushing a version tag, e.g.:  git tag v1.0.0 && git push origin v1.0.0
+# Every push to main: run tests, then publish a new patch version — Docker image
+# (X.Y.Z + latest) to ghcr.io and a GitHub Release with notes + the native binary.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
 
 permissions:
-  contents: write   # create the GitHub Release
+  contents: write   # create the GitHub Release + tag
   packages: write   # push the image to GitHub Container Registry (ghcr.io)
 
+# Serialize releases so concurrent pushes don't race on version computation.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  release:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Set up JDK 21 (Liberica)
+        uses: actions/setup-java@v4
+        with:
+          distribution: liberica
+          java-version: '21'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Test
+        run: ./gradlew test
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need full tag history to compute the next version
+
+      - name: Compute next version (patch bump from the latest v-tag)
+        run: |
+          git fetch --tags --force
+          latest="$(git tag -l 'v*' --sort=-v:refname | head -n1)"
+          if [ -z "$latest" ]; then
+            next="0.1.0"
+          else
+            v="${latest#v}"
+            IFS=. read -r major minor patch <<< "$v"
+            next="${major}.${minor}.$((patch + 1))"
+          fi
+          echo "VERSION=$next" >> "$GITHUB_ENV"
+          echo "TAG=v$next" >> "$GITHUB_ENV"
+          echo "Releasing v$next"
 
       # ghcr image names must be lowercase; GITHUB_REPOSITORY may contain uppercase.
       - name: Compute lowercase image name
@@ -26,49 +64,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Image tags + labels
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=raw,value=latest
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # The multi-stage Dockerfile builds the musl native binary inside the BellSoft NIK image
-      # and ships it on Alpaquita. This is heavy (several minutes).
-      - name: Build and push image
-        id: build
+      # The multi-stage Dockerfile builds the musl native binary inside the BellSoft NIK
+      # image and ships it on Alpaquita. Heavy (several minutes); cached across runs.
+      - name: Build and push image (version + latest)
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.IMAGE }}:${{ env.VERSION }}
+            ${{ env.IMAGE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Reuse the just-built image to extract the native binary as a downloadable release asset.
       - name: Extract native binary from the image
         run: |
-          first_tag="$(printf '%s' '${{ steps.meta.outputs.tags }}' | head -n1)"
-          cid="$(docker create "$first_tag")"
-          docker cp "$cid:/usr/local/bin/cfpbot" "./cfpbot-linux-x86_64"
+          cid="$(docker create "${IMAGE}:${VERSION}")"
+          docker cp "$cid:/usr/local/bin/cfpbot" ./cfpbot-linux-x86_64
           docker rm "$cid"
           chmod +x ./cfpbot-linux-x86_64
 
+      # Creates tag v$VERSION at this commit, generates notes, attaches the binary.
+      # (This tag does NOT retrigger the workflow — it only runs on push to main.)
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.TAG }}
           generate_release_notes: true
           files: cfpbot-linux-x86_64
           body: |
-            Container image: `${{ env.IMAGE }}:${{ github.ref_name }}`
+            Container image: `${{ env.IMAGE }}:${{ env.VERSION }}` (also tagged `latest`)
 
             ```bash
             docker run --rm --env-file .env --user "$(id -u):$(id -g)" \
-              -v "$PWD/data:/data" ${{ env.IMAGE }}:${{ github.ref_name }}
+              -v "$PWD/data:/data" ${{ env.IMAGE }}:${{ env.VERSION }}
             ```
