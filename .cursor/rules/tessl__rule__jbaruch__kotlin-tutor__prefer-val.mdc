@@ -1,0 +1,27 @@
+---
+alwaysApply: true
+---
+
+---
+alwaysApply: true
+---
+
+# Prefer val
+
+## Default to Immutable
+
+- Properties and locals default to `val` — declare `var` only when mutation is required and the mutation is intentional
+- `var` in a data class signals you're modelling mutable state by accident; convert to `val` and reconstruct via `copy()` instead
+- The reviewer test: "would I be surprised if this changed?" — if yes, it's a `val`
+
+## When `var` Is Actually Right
+
+- Accumulators inside a function body where the alternative would obscure intent
+- State machines whose entire purpose is to advance
+- Backing fields for computed properties that must memoize across calls
+
+## Reconstruction Over Mutation
+
+- Update a value type via `someValue.copy(field = newValue)`, not `someValue.field = newValue`
+- This composes cleanly with `?.let { … }` and stream-style transformations
+- Mutating a shared instance through a property setter is the bug factory `val` exists to prevent

@@ -1,0 +1,61 @@
+{
+  "name": "jbaruch/kotlin-tutor",
+  "version": "0.8.1",
+  "summary": "Teaches AI agents to write idiomatic Kotlin (data classes, val, scope fns, Kotest) AND to make the right stack choices on JVM: Kotlin 2.3 + JDK 21 + Gradle Kotlin DSL, Ktor for HTTP, kotlinx-coroutines, DJL for ML inference, JavaCV for vision, Koog for AI agent orchestration.",
+  "private": false,
+  "skills": {
+    "kotlinify-tests": {
+      "path": "skills/kotlinify-tests/SKILL.md"
+    },
+    "pojoify-to-dataclass": {
+      "path": "skills/pojoify-to-dataclass/SKILL.md"
+    },
+    "nullable-cleanup": {
+      "path": "skills/nullable-cleanup/SKILL.md"
+    },
+    "kotlin-api-review": {
+      "path": "skills/kotlin-api-review/SKILL.md"
+    }
+  },
+  "rules": {
+    "kotlin-stack-defaults": {
+      "rules": "rules/kotlin-stack-defaults.md"
+    },
+    "prefer-val": {
+      "rules": "rules/prefer-val.md"
+    },
+    "nullable-question-mark": {
+      "rules": "rules/nullable-question-mark.md"
+    },
+    "use-data-class": {
+      "rules": "rules/use-data-class.md"
+    },
+    "kotest-over-junit": {
+      "rules": "rules/kotest-over-junit.md"
+    },
+    "prefer-stdlib-scope": {
+      "rules": "rules/prefer-stdlib-scope.md"
+    },
+    "extension-over-util": {
+      "rules": "rules/extension-over-util.md"
+    },
+    "stateflow-over-atomic-polling": {
+      "rules": "rules/stateflow-over-atomic-polling.md"
+    },
+    "coroutines-for-concurrency": {
+      "rules": "rules/coroutines-for-concurrency.md"
+    },
+    "ktor-for-http": {
+      "rules": "rules/ktor-for-http.md"
+    },
+    "djl-for-jvm-ml": {
+      "rules": "rules/djl-for-jvm-ml.md"
+    },
+    "javacv-for-vision": {
+      "rules": "rules/javacv-for-vision.md"
+    },
+    "koog-for-agents": {
+      "rules": "rules/koog-for-agents.md"
+    }
+  }
+}

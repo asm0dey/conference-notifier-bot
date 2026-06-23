@@ -1,0 +1,9 @@
+{
+  "name": "conference-notifier-bot",
+  "mode": "vendored",
+  "dependencies": {
+    "jbaruch/kotlin-tutor": {
+      "version": "0.8.1"
+    }
+  }
+}

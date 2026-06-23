@@ -1,0 +1,41 @@
+---
+alwaysApply: true
+---
+
+---
+alwaysApply: true
+---
+
+# JavaCV for Vision on the JVM
+
+## JavaCV Is the Camera + OpenCV Default
+
+- For camera capture, video I/O, and OpenCV operations on JVM, use **JavaCV** (`org.bytedeco:javacv-platform`, current **1.5.13**)
+- JavaCV bundles JavaCPP wrappers for OpenCV, FFmpeg, libdc1394, OpenKinect, ARToolKitPlus — a single dependency for the whole stack
+- Don't shell out to `cv2` via Python, don't try to use `org.openpnp:opencv` (older, abandoned), don't write JNI bindings to a system OpenCV install
+
+## What You Get
+
+- `org.bytedeco.javacv.OpenCVFrameGrabber(index)` for webcam capture
+- `org.bytedeco.opencv.global.opencv_imgproc.*` for full OpenCV imgproc API (cvtColor, resize, rectangle, putText)
+- `org.bytedeco.opencv.opencv_objdetect.CascadeClassifier` for Haar detection
+- `org.bytedeco.javacv.Java2DFrameConverter` + `OpenCVFrameConverter.ToMat` for `Mat` ↔ `BufferedImage` ↔ DJL `Image` bridging
+
+## Idiomatic Use
+
+- Wrap `OpenCVFrameGrabber` in an `AutoCloseable` Kotlin class with `try { ... } finally { grabber.stop() }`
+- On macOS, the first `grabber.grab()` after `start()` returns black frames for ~500 ms — sleep through the warm-up before entering the main loop
+- Combine with a `Flow<Frame>`: emit on every grab, use `Flow.sample()` to throttle heavy inference downstream
+
+## Footprint Warning
+
+- `javacv-platform` pulls native libs for Linux x86_64, Linux ARM64, macOS x86_64, macOS ARM64, Windows x86_64 — **~400 MB** of jars on first download
+- Pre-warm Gradle dependency cache before any environment with constrained bandwidth
+- For production deployments to a single platform, use the platform-specific artifact (`javacv` + `opencv-platform-linux-x86_64`) instead of the full `javacv-platform`
+
+## Anti-patterns
+
+- ❌ Shelling to `python -c "import cv2; …"` for image work — defeats the point of being on JVM
+- ❌ `org.openpnp:opencv` for new code — unmaintained, lacks recent OpenCV features
+- ❌ System `libopencv.so` via JNI hand-bindings — JavaCV solves this; don't re-solve it
+- ❌ Re-allocating `Mat` per frame inside a 30 fps loop — reuse the buffer
