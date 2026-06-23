@@ -191,10 +191,10 @@ UID=$(id -u) GID=$(id -g) DB_DIR=./data docker compose up --build
 - **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs `./gradlew test` on every
   pull request.
 - **Release** ([`.github/workflows/release.yml`](.github/workflows/release.yml)) runs on **every
-  push to `main`**: it runs the tests, then (only if green) patch-bumps the version from the
-  latest `vX.Y.Z` tag (first release is `v0.1.0`), builds and pushes the Docker image to
-  `ghcr.io/<owner>/<repo>` tagged with **both `X.Y.Z` and `latest`**, and publishes a GitHub
-  Release — tagged `vX.Y.Z`, with auto-generated notes and the native Linux binary attached.
+  push to `main`**: it runs the tests, then (only if green) increments a single integer version
+  from the latest `vN` tag (first release is `v1`), builds and pushes the Docker image to
+  `ghcr.io/<owner>/<repo>` tagged with **both `N` and `latest`**, and publishes a GitHub
+  Release — tagged `vN`, with auto-generated notes and the native Linux binary attached.
 
 Publishing uses the built-in `GITHUB_TOKEN` (no extra secrets). The ghcr package may start out
 private — make it public in the repo's package settings to pull anonymously. Since every `main`
