@@ -138,4 +138,15 @@ class ReminderEngineTest : StringSpec({
         importanceMarker(8L) shouldBe "🟢"
         importanceMarker(60L) shouldBe "🟢"
     }
+
+    "activeReminders returns one OPENED reminder per open conference, skipping closed/blank" {
+        val today = LocalDate.of(2026, 6, 1)
+        val open = Conference(name = "Open", cfpEndDate = "5 June 2026")
+        val closed = Conference(name = "Closed", cfpEndDate = "1 May 2026")
+        val blank = Conference(name = "NoCfp", cfpEndDate = "")
+        val result = activeReminders(listOf(open, closed, blank), today)
+        result.map { it.conference.name } shouldBe listOf("Open")
+        result.single().kind shouldBe ReminderKind.OPENED
+        result.single().daysLeft shouldBe 4L
+    }
 })

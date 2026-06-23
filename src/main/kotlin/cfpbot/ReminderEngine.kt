@@ -55,6 +55,13 @@ fun computeReminders(
     return EngineResult(reminders, state.copy(confs = newConfs))
 }
 
+fun activeReminders(conferences: List<Conference>, today: LocalDate): List<Reminder> =
+    conferences.mapNotNull { c ->
+        val close = c.cfpClose() ?: return@mapNotNull null
+        if (close.isBefore(today)) return@mapNotNull null
+        Reminder(c, ReminderKind.OPENED, ChronoUnit.DAYS.between(today, close))
+    }
+
 private fun String.htmlEscape(): String =
     replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
