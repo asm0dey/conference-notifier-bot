@@ -173,6 +173,23 @@
       ]
     },
     {
+      "type": "eu.vendeli.tgbot.types.msg.Message",
+      "fields": [
+        {
+          "name": "Companion"
+        }
+      ]
+    },
+    {
+      "type": "eu.vendeli.tgbot.types.msg.Message$Companion",
+      "methods": [
+        {
+          "name": "serializer",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "eu.vendeli.tgbot.types.options.GetUpdatesOptions",
       "fields": [
         {
@@ -190,10 +207,30 @@
       ]
     },
     {
+      "type": "eu.vendeli.tgbot.types.options.MessageOptions",
+      "fields": [
+        {
+          "name": "Companion"
+        }
+      ]
+    },
+    {
+      "type": "eu.vendeli.tgbot.types.options.MessageOptions$Companion",
+      "methods": [
+        {
+          "name": "serializer",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "io.ktor.client.HttpClient"
     },
     {
       "type": "io.ktor.client.HttpClientConfig"
+    },
+    {
+      "type": "io.ktor.client.call.HttpClientCall"
     },
     {
       "type": "io.ktor.client.content.ProgressListener"
@@ -452,6 +489,12 @@
       "type": "kotlinx.coroutines.CancellableContinuationImpl"
     },
     {
+      "type": "kotlinx.coroutines.CancelledContinuation"
+    },
+    {
+      "type": "kotlinx.coroutines.CompletedExceptionally"
+    },
+    {
       "type": "kotlinx.coroutines.EventLoopImplBase"
     },
     {
@@ -510,6 +553,9 @@
     },
     {
       "type": "kotlinx.io.RefCountingCopyTracker"
+    },
+    {
+      "type": "kotlinx.io.Source"
     },
     {
       "type": "org.h2.Driver"
@@ -912,6 +958,17 @@
     {
       "module": "java.base",
       "glob": "jdk/internal/icu/impl/data/icudt76b/nfkc.nrm"
+    },
+    {
+      "module": "java.base",
+      "glob": "sun/launcher/resources/launcher_en.properties"
+    },
+    {
+      "module": "java.base",
+      "glob": "sun/launcher/resources/launcher_en_US.properties"
+    },
+    {
+      "bundle": "sun.launcher.resources.launcher"
     }
   ]
 }

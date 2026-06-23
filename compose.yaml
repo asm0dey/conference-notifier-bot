@@ -4,9 +4,11 @@ services:
     image: cfpbot:native
     # Load BOT_TOKEN (and any overrides) from your local .env — never baked into the image.
     env_file: .env
-    # Run as the host user so DB files on the bind mount are owned by you (not root).
-    # `id -u`/`id -g` resolve from your shell environment.
-    user: "${UID:-1000}:${GID:-1000}"
+    # Run as your host user so DB files on the bind mount are owned by you (not root).
+    # Use PUID/PGID, NOT UID/GID — UID is a read-only bash variable that isn't exported,
+    # so compose can't read it and would silently fall back to 1000.
+    # Run with:  PUID=$(id -u) PGID=$(id -g) docker compose up -d
+    user: "${PUID:-1000}:${PGID:-1000}"
     volumes:
       # Host dir (left) holds the H2 database; must be writable by your user.
       # Override the host path with DB_DIR=/somewhere docker compose up.
