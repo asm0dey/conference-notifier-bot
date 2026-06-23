@@ -94,3 +94,43 @@ JAVA_OPTS="-agentlib:native-image-agent=config-merge-dir=src/main/resources/META
 # DM the bot /start and /check (and post in a channel), then Ctrl-C
 GRAALVM_HOME=/path/to/liberica-nik ./gradlew nativeCompile
 ```
+
+## Docker (native, on Alpaquita, non-root)
+
+A multi-stage [`Dockerfile`](Dockerfile) builds a **musl** native binary in a BellSoft
+Liberica NIK image and ships it on a tiny `bellsoft/alpaquita-linux-base:stream-musl`
+runtime (the binary links musl libc + libz dynamically, both present in that base). The
+container runs as a **non-root** user and keeps its H2 database in a mounted `/data` volume.
+
+Build:
+
+```bash
+docker build -t cfpbot:native .
+```
+
+Run — load the token from your local `.env`, bind-mount a DB directory you own, and run as
+your own UID/GID so the database files on the host stay owned by you:
+
+```bash
+mkdir -p ./data
+docker run --rm \
+  --env-file .env \
+  --user "$(id -u):$(id -g)" \
+  -v "$PWD/data:/data" \
+  cfpbot:native
+```
+
+- `--env-file .env` — secrets stay out of the image; `.env` is also excluded from the build
+  context by [`.dockerignore`](.dockerignore).
+- `--user "$(id -u):$(id -g)"` + a **bind mount** — the process writes the H2 files as your
+  host user, so `./data/cfpbot.mv.db` is owned and readable by you, no root anywhere.
+- `DB_PATH` defaults to `/data/cfpbot` inside the container; override with `-e DB_PATH=...`
+  (keep it under `/data`). `CHECK_HOUR` defaults to `9`.
+
+Or with Compose ([`compose.yaml`](compose.yaml)) — set your ids once and it wires env, the
+volume, and the user:
+
+```bash
+UID=$(id -u) GID=$(id -g) DB_DIR=./data docker compose up --build
+```
+

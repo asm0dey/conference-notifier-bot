@@ -1,0 +1,22 @@
+# SECURITY: never let the token into the build context / an image layer
+.env
+.env.*
+.envrc
+
+# VCS + scratch
+.git
+.gitignore
+.superpowers
+
+# build outputs (rebuilt inside the image)
+build
+data
+.gradle
+.kotlin
+*.mv.db
+*.trace.db
+
+# editor / agent cruft not needed to build
+.idea
+.vscode
+docs
