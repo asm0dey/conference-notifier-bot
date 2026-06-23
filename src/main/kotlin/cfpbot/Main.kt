@@ -25,6 +25,12 @@ suspend fun main() {
         }
         httpClient {
             requestTimeoutMillis = 45_000L    // must exceed updatesPollingTimeout*1000 + margin
+            // Auto-retry transient Telegram 429 (rate limit) at the transport layer, for every
+            // request (sends + getUpdates). The per-send runCatching guards then only catch
+            // permanent failures (bot blocked, bad chat id) where retrying is futile.
+            maxRequestRetry = 3
+            retryDelay = 2_000L
+            retryStrategy = retryOnTooManyRequests()
         }
     }
     val notifier = TelegramNotifier(bot)
