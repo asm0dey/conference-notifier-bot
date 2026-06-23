@@ -69,7 +69,7 @@ jobs:
       # The multi-stage Dockerfile builds the musl native binary inside the BellSoft NIK
       # image and ships it on Alpaquita. Heavy (several minutes); cached across runs.
       - name: Build and push image (version + latest)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
