@@ -4,6 +4,7 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import java.time.LocalDate
 
 class ReminderEngineTest : StringSpec({
@@ -97,6 +98,34 @@ class ReminderEngineTest : StringSpec({
     "CLOSING_SOON message says closes tomorrow when daysLeft is 1" {
         val c = conf("KotlinConf", "2 June 2026")
         Reminder(c, ReminderKind.CLOSING_SOON, 1L).render() shouldContain "TOMORROW"
+    }
+
+    "OPENED render has marker, name, deadline, and a maps hyperlink when coords exist" {
+        val c = Conference(
+            name = "Devoxx", cfpLink = "https://cfp/devoxx", cfpEndDate = "1 August 2026",
+            locationName = "Antwerp, Belgium", coordinates = Coordinates(51.22, 4.40),
+        )
+        val text = Reminder(c, ReminderKind.OPENED, 61L).render()
+        text shouldContain "🟢"
+        text shouldContain "📢 CFP OPEN: Devoxx"
+        text shouldContain "1 August 2026"
+        text shouldContain "<a href=\"https://maps.google.com/?q=51.22,4.4\">Antwerp, Belgium</a>"
+    }
+    "render shows a plain location line when there are no coords" {
+        val c = Conference(name = "Online Conf", cfpEndDate = "1 August 2026", locationName = "online")
+        val text = Reminder(c, ReminderKind.OPENED, 61L).render()
+        text shouldContain "📍 online"
+        text shouldNotContain "<a href"
+    }
+    "render html-escapes dynamic text" {
+        val c = Conference(name = "A & B <Conf>", cfpEndDate = "1 August 2026")
+        Reminder(c, ReminderKind.OPENED, 61L).render() shouldContain "A &amp; B &lt;Conf&gt;"
+    }
+    "CLOSING_SOON render keeps TODAY/TOMORROW phrasing and red marker near deadline" {
+        val c = Conference(name = "KotlinConf", cfpEndDate = "1 June 2026")
+        Reminder(c, ReminderKind.CLOSING_SOON, 0L).render() shouldContain "closes TODAY"
+        Reminder(c, ReminderKind.CLOSING_SOON, 0L).render() shouldContain "🔴"
+        Reminder(c, ReminderKind.CLOSING_SOON, 1L).render() shouldContain "closes TOMORROW"
     }
 
     "importance marker scales with days until deadline" {

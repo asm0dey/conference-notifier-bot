@@ -55,15 +55,28 @@ fun computeReminders(
     return EngineResult(reminders, state.copy(confs = newConfs))
 }
 
+private fun String.htmlEscape(): String =
+    replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
 private fun Conference.cfpUrl(): String = cfpLink.ifBlank { link }
+
+private fun Conference.locationLine(): String {
+    if (locationName.isBlank()) return ""
+    val url = mapsUrl()
+    return if (url != null) {
+        "📍 <a href=\"$url\">${locationName.htmlEscape()}</a>\n"
+    } else {
+        "📍 ${locationName.htmlEscape()}\n"
+    }
+}
 
 fun Reminder.render(): String = when (kind) {
     ReminderKind.OPENED -> buildString {
-        append("📢 CFP OPEN: ${conference.name}\n")
-        if (conference.locationName.isNotBlank()) append("📍 ${conference.locationName}\n")
-        if (conference.date.isNotBlank()) append("🗓 ${conference.date}\n")
-        append("⏳ CFP closes ${conference.cfpEndDate}\n")
-        if (conference.cfpUrl().isNotBlank()) append("➡️ ${conference.cfpUrl()}")
+        append("${importanceMarker(daysLeft)} 📢 CFP OPEN: ${conference.name.htmlEscape()}\n")
+        append(conference.locationLine())
+        if (conference.date.isNotBlank()) append("🗓 ${conference.date.htmlEscape()}\n")
+        append("⏳ CFP closes ${conference.cfpEndDate.htmlEscape()}\n")
+        if (conference.cfpUrl().isNotBlank()) append("➡️ ${conference.cfpUrl().htmlEscape()}")
     }.trimEnd()
     ReminderKind.CLOSING_SOON -> buildString {
         val phrase = when (daysLeft) {
@@ -71,8 +84,9 @@ fun Reminder.render(): String = when (kind) {
             1L -> "closes TOMORROW"
             else -> "closes in $daysLeft days"
         }
-        append("⏰ CFP $phrase: ${conference.name}\n")
-        append("⏳ Deadline ${conference.cfpEndDate}\n")
-        if (conference.cfpUrl().isNotBlank()) append("➡️ ${conference.cfpUrl()}")
+        append("${importanceMarker(daysLeft)} ⏰ CFP $phrase: ${conference.name.htmlEscape()}\n")
+        append(conference.locationLine())
+        append("⏳ Deadline ${conference.cfpEndDate.htmlEscape()}\n")
+        if (conference.cfpUrl().isNotBlank()) append("➡️ ${conference.cfpUrl().htmlEscape()}")
     }.trimEnd()
 }
