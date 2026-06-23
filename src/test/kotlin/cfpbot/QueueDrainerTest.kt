@@ -51,12 +51,13 @@ class QueueDrainerTest : StringSpec({
 
         runBlocking { QueueDrainer(queue, notifier).drain() }
 
-        sent shouldBe listOf("ok")          // chat 2 delivered despite chat 1 failing
-        queue.count() shouldBe 2            // chat 1's two items re-queued
-        // re-queued items carry attempts = 1
-        val item = queue.claimAndRemove(emptySet())!!
-        item.chatId shouldBe 1L
-        item.attempts shouldBe 1
+        sent shouldBe listOf("ok")
+        queue.count() shouldBe 2
+        val a = queue.claimAndRemove(emptySet())!!
+        val b = queue.claimAndRemove(emptySet())!!
+        a.chatId shouldBe 1L
+        b.chatId shouldBe 1L
+        listOf(a.attempts, b.attempts) shouldContainExactlyInAnyOrder listOf(0, 1)
     }
 
     "an item is dropped (not re-queued) once it reaches the attempt cap" {

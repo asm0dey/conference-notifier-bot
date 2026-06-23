@@ -20,19 +20,14 @@ class QueueDrainer(
                 }
             } catch (e: Exception) {
                 blocked += item.chatId
-                // Re-enqueue the failed item plus any remaining items for the same chat so they
-                // all advance together and the blocked set stops the loop for this chat.
-                val allFailed = listOf(item) + queue.drainChat(item.chatId)
-                for (failed in allFailed) {
-                    val nextAttempts = failed.attempts + 1
-                    if (nextAttempts < MAX_SEND_ATTEMPTS) {
-                        queue.enqueue(failed.chatId, failed.text, failed.lat, failed.lon, nextAttempts)
-                    } else {
-                        System.err.println(
-                            "cfpbot: dropping queued message to ${failed.chatId} after " +
-                                "$nextAttempts attempts (${e.javaClass.simpleName})",
-                        )
-                    }
+                val nextAttempts = item.attempts + 1
+                if (nextAttempts < MAX_SEND_ATTEMPTS) {
+                    queue.enqueue(item.chatId, item.text, item.lat, item.lon, nextAttempts)
+                } else {
+                    System.err.println(
+                        "cfpbot: dropping queued message to ${item.chatId} after " +
+                            "$nextAttempts attempts (${e.javaClass.simpleName})",
+                    )
                 }
             }
         }
