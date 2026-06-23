@@ -5,6 +5,13 @@ import java.time.temporal.ChronoUnit
 
 const val REMINDER_WINDOW_DAYS: Long = 7
 
+fun importanceMarker(daysLeft: Long): String = when {
+    daysLeft <= 1 -> "🔴"
+    daysLeft <= 3 -> "🟠"
+    daysLeft <= 7 -> "🟡"
+    else -> "🟢"
+}
+
 enum class ReminderKind { OPENED, CLOSING_SOON }
 
 data class Reminder(val conference: Conference, val kind: ReminderKind, val daysLeft: Long)

@@ -98,4 +98,15 @@ class ReminderEngineTest : StringSpec({
         val c = conf("KotlinConf", "2 June 2026")
         Reminder(c, ReminderKind.CLOSING_SOON, 1L).render() shouldContain "TOMORROW"
     }
+
+    "importance marker scales with days until deadline" {
+        importanceMarker(0L) shouldBe "🔴"
+        importanceMarker(1L) shouldBe "🔴"
+        importanceMarker(2L) shouldBe "🟠"
+        importanceMarker(3L) shouldBe "🟠"
+        importanceMarker(4L) shouldBe "🟡"
+        importanceMarker(7L) shouldBe "🟡"
+        importanceMarker(8L) shouldBe "🟢"
+        importanceMarker(60L) shouldBe "🟢"
+    }
 })
