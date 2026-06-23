@@ -1,6 +1,7 @@
 package cfpbot
 
 import eu.vendeli.tgbot.TelegramBot
+import eu.vendeli.tgbot.api.botactions.setMyCommands
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import kotlinx.coroutines.delay
@@ -42,6 +43,13 @@ suspend fun main() {
     Registry.notifier = notifier
     Registry.queue = queue
     Registry.drainer = drainer
+
+    // Register the command menu so clients autocomplete /start, /check, /active.
+    setMyCommands {
+        botCommand("start", "Register this chat for CFP notifications")
+        botCommand("check", "Run the CFP check now")
+        botCommand("active", "List every currently-open CFP")
+    }.send(bot)
 
     startScheduler(ds, check, runAt, drainer)
     println("cfpbot: scheduler started (daily at $runAt), listening for /start…")
