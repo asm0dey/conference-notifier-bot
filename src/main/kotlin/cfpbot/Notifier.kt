@@ -8,8 +8,9 @@ import eu.vendeli.tgbot.types.component.ParseMode
 fun interface Notifier {
     suspend fun send(chatId: Long, text: String)
 
-    // Default no-op keeps existing `Notifier { _, _ -> ... }` lambdas valid; real impls override.
-    suspend fun sendLocation(chatId: Long, lat: Double, lon: Double) {}
+    suspend fun sendLocation(chatId: Long, lat: Double, lon: Double) {
+        // Default no-op: keeps existing `Notifier { _, _ -> ... }` SAM lambdas valid; real impls override.
+    }
 }
 
 class TelegramNotifier(private val bot: TelegramBot) : Notifier {

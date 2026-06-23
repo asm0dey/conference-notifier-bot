@@ -36,7 +36,7 @@ suspend fun check(update: ProcessedUpdate, bot: TelegramBot) {
 }
 
 @CommandHandler(["/active"])
-suspend fun active(update: ProcessedUpdate, bot: TelegramBot) {
+suspend fun active(update: ProcessedUpdate) {
     val chat = update.getChat()
     val reminders = activeReminders(Registry.source.fetch(), LocalDate.now())
     if (reminders.isEmpty()) {
