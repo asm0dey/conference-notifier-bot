@@ -13,12 +13,12 @@ private fun drainerDs(name: String) = HikariDataSource(HikariConfig().apply {
 })
 
 class QueueDrainerTest : StringSpec({
-    "drains every queued item when all sends succeed" {
+    "drains text rows and location rows as independent single-purpose sends" {
         val ds = drainerDs("drain_ok"); runDdl(ds)
         val queue = SendQueueRepository(ds)
-        queue.enqueue(1L, "a", null, null)
-        queue.enqueue(1L, "b", 10.0, 20.0)
-        queue.enqueue(2L, "c", null, null)
+        queue.enqueue(1L, "a", null, null)    // text row
+        queue.enqueue(1L, "", 10.0, 20.0)     // location row (no text)
+        queue.enqueue(2L, "c", null, null)    // text row
 
         val sent = mutableListOf<String>()
         val pins = mutableListOf<Pair<Double, Double>>()
@@ -29,9 +29,30 @@ class QueueDrainerTest : StringSpec({
 
         runBlocking { QueueDrainer(queue, notifier).drain() }
 
-        sent shouldContainExactlyInAnyOrder listOf("a", "b", "c")
-        pins shouldContainExactlyInAnyOrder listOf(10.0 to 20.0)
+        sent shouldContainExactlyInAnyOrder listOf("a", "c")     // only text rows -> send
+        pins shouldContainExactlyInAnyOrder listOf(10.0 to 20.0) // location row -> pin only
         queue.count() shouldBe 0
+    }
+
+    "a failing pin re-queues only the pin and never re-sends the text" {
+        val ds = drainerDs("drain_pin_fail"); runDdl(ds)
+        val queue = SendQueueRepository(ds)
+        queue.enqueue(1L, "jdd text", null, null) // text row (succeeds)
+        queue.enqueue(1L, "", 50.0, 19.0)         // pin row (will fail)
+
+        val sent = mutableListOf<String>()
+        val notifier = object : Notifier {
+            override suspend fun send(chatId: Long, text: String) { sent += text }
+            override suspend fun sendLocation(chatId: Long, lat: Double, lon: Double) {
+                throw RuntimeException("429")
+            }
+        }
+
+        runBlocking { QueueDrainer(queue, notifier).drain() }
+
+        sent shouldBe listOf("jdd text")   // text delivered exactly once, no duplicate
+        queue.count() shouldBe 1           // only the pin re-queued
+        queue.claimAndRemove(emptySet())!!.lat shouldBe 50.0
     }
 
     "a failing chat is backed off and its items re-queued, while other chats still drain" {
