@@ -1,0 +1,74 @@
+name: Release
+
+# Cut a release by pushing a version tag, e.g.:  git tag v1.0.0 && git push origin v1.0.0
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # create the GitHub Release
+  packages: write   # push the image to GitHub Container Registry (ghcr.io)
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ghcr image names must be lowercase; GITHUB_REPOSITORY may contain uppercase.
+      - name: Compute lowercase image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image tags + labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # The multi-stage Dockerfile builds the musl native binary inside the BellSoft NIK image
+      # and ships it on Alpaquita. This is heavy (several minutes).
+      - name: Build and push image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Reuse the just-built image to extract the native binary as a downloadable release asset.
+      - name: Extract native binary from the image
+        run: |
+          first_tag="$(printf '%s' '${{ steps.meta.outputs.tags }}' | head -n1)"
+          cid="$(docker create "$first_tag")"
+          docker cp "$cid:/usr/local/bin/cfpbot" "./cfpbot-linux-x86_64"
+          docker rm "$cid"
+          chmod +x ./cfpbot-linux-x86_64
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: cfpbot-linux-x86_64
+          body: |
+            Container image: `${{ env.IMAGE }}:${{ github.ref_name }}`
+
+            ```bash
+            docker run --rm --env-file .env --user "$(id -u):$(id -g)" \
+              -v "$PWD/data:/data" ${{ env.IMAGE }}:${{ github.ref_name }}
+            ```
