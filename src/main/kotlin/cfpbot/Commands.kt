@@ -43,16 +43,13 @@ suspend fun active(update: ProcessedUpdate, bot: TelegramBot) {
         Registry.notifier.send(chat.id, "No active CFPs right now.")
         return
     }
+    // Enqueue one message per open CFP, then drain ASAP. A per-chat rate limit during the drain
+    // leaves the remainder queued for the recurring drain-queue task to deliver within ~2 min.
     for (reminder in reminders) {
-        // Don't let one failed/rate-limited send (429) abort the listing with a stack trace —
-        // drop it and continue. /active is on-demand, so re-run to retry.
-        runCatching { Registry.notifier.send(chat.id, reminder.render()) }
-            .onFailure { System.err.println("cfpbot: /active send failed (${it.javaClass.simpleName})") }
         val conf = reminder.conference
-        if (conf.hasMap()) {
-            val coords = conf.coordinates!!
-            runCatching { Registry.notifier.sendLocation(chat.id, coords.lat, coords.lon) }
-                .onFailure { System.err.println("cfpbot: /active location failed (${it.javaClass.simpleName})") }
-        }
+        val lat = if (conf.hasMap()) conf.coordinates!!.lat else null
+        val lon = if (conf.hasMap()) conf.coordinates!!.lon else null
+        Registry.queue.enqueue(chat.id, reminder.render(), lat, lon)
     }
+    Registry.drainer.drain()
 }
