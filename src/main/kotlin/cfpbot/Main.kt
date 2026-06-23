@@ -21,6 +21,7 @@ suspend fun main() {
     val bot = TelegramBot(token)
     val notifier = TelegramNotifier(bot)
     val check = CheckTask(source, repo, notifier)
+    Registry.check = check
 
     startScheduler(ds, check, runAt)
     println("cfpbot: scheduler started (daily at $runAt), listening for /start…")
