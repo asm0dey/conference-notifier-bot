@@ -5,6 +5,7 @@ import com.github.kagkarlsson.scheduler.task.helper.RecurringTask
 import com.github.kagkarlsson.scheduler.task.helper.Tasks
 import com.github.kagkarlsson.scheduler.task.schedule.Schedules
 import kotlinx.coroutines.runBlocking
+import java.time.Duration
 import java.time.LocalTime
 import javax.sql.DataSource
 
@@ -15,10 +16,15 @@ fun cfpCheckTask(check: CheckTask, runAt: LocalTime): RecurringTask<Void> =
             runBlocking { check.run() }
         }
 
-fun startScheduler(ds: DataSource, check: CheckTask, runAt: LocalTime): Scheduler {
-    val task = cfpCheckTask(check, runAt)
-    val scheduler = Scheduler.create(ds, task)
-        .threads(1)
+fun drainQueueTask(drainer: QueueDrainer): RecurringTask<Void> =
+    Tasks.recurring("drain-queue", Schedules.fixedDelay(Duration.ofMinutes(2)))
+        .execute { _, _ ->
+            runBlocking { drainer.drain() }
+        }
+
+fun startScheduler(ds: DataSource, check: CheckTask, runAt: LocalTime, drainer: QueueDrainer): Scheduler {
+    val scheduler = Scheduler.create(ds, cfpCheckTask(check, runAt), drainQueueTask(drainer))
+        .threads(2)
         .build()
     scheduler.start()
     return scheduler

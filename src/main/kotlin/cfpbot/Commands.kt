@@ -14,6 +14,8 @@ object Registry {
     lateinit var check: CheckTask
     lateinit var source: ConferenceSource
     lateinit var notifier: Notifier
+    lateinit var queue: SendQueueRepository
+    lateinit var drainer: QueueDrainer
 }
 
 @CommandHandler(["/start"])

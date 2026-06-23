@@ -34,12 +34,16 @@ suspend fun main() {
         }
     }
     val notifier = TelegramNotifier(bot)
+    val queue = SendQueueRepository(ds)
+    val drainer = QueueDrainer(queue, notifier)
     val check = CheckTask(source, repo, notifier)
     Registry.check = check
     Registry.source = source
     Registry.notifier = notifier
+    Registry.queue = queue
+    Registry.drainer = drainer
 
-    startScheduler(ds, check, runAt)
+    startScheduler(ds, check, runAt, drainer)
     println("cfpbot: scheduler started (daily at $runAt), listening for /start…")
 
     // ponytail: infinite restart with fixed 5s backoff — a personal bot just needs to stay up.

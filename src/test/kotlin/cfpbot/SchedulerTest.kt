@@ -27,8 +27,10 @@ class SchedulerTest : StringSpec({
         val repo = StateRepository(ds)
         val notifier = Notifier { _, _ -> }
         val check = CheckTask(source, repo, notifier)
+        val queue = SendQueueRepository(ds)
+        val drainer = QueueDrainer(queue, notifier)
 
-        val scheduler = startScheduler(ds, check, LocalTime.of(9, 0))
+        val scheduler = startScheduler(ds, check, LocalTime.of(9, 0), drainer)
 
         // A non-null scheduler means db-scheduler 16 accepted the schema (priority column, etc.)
         // and registered the recurring task without error.
