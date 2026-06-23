@@ -5,6 +5,13 @@ import java.time.temporal.ChronoUnit
 
 const val REMINDER_WINDOW_DAYS: Long = 7
 
+fun importanceMarker(daysLeft: Long): String = when {
+    daysLeft <= 1 -> "🔴"
+    daysLeft <= 3 -> "🟠"
+    daysLeft <= 7 -> "🟡"
+    else -> "🟢"
+}
+
 enum class ReminderKind { OPENED, CLOSING_SOON }
 
 data class Reminder(val conference: Conference, val kind: ReminderKind, val daysLeft: Long)
@@ -48,15 +55,35 @@ fun computeReminders(
     return EngineResult(reminders, state.copy(confs = newConfs))
 }
 
+fun activeReminders(conferences: List<Conference>, today: LocalDate): List<Reminder> =
+    conferences.mapNotNull { c ->
+        val close = c.cfpClose() ?: return@mapNotNull null
+        if (close.isBefore(today)) return@mapNotNull null
+        Reminder(c, ReminderKind.OPENED, ChronoUnit.DAYS.between(today, close))
+    }
+
+private fun String.htmlEscape(): String =
+    replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
 private fun Conference.cfpUrl(): String = cfpLink.ifBlank { link }
+
+private fun Conference.locationLine(): String {
+    if (locationName.isBlank()) return ""
+    val url = mapsUrl()
+    return if (url != null) {
+        "📍 <a href=\"$url\">${locationName.htmlEscape()}</a>\n"
+    } else {
+        "📍 ${locationName.htmlEscape()}\n"
+    }
+}
 
 fun Reminder.render(): String = when (kind) {
     ReminderKind.OPENED -> buildString {
-        append("📢 CFP OPEN: ${conference.name}\n")
-        if (conference.locationName.isNotBlank()) append("📍 ${conference.locationName}\n")
-        if (conference.date.isNotBlank()) append("🗓 ${conference.date}\n")
-        append("⏳ CFP closes ${conference.cfpEndDate}\n")
-        if (conference.cfpUrl().isNotBlank()) append("➡️ ${conference.cfpUrl()}")
+        append("${importanceMarker(daysLeft)} 📢 CFP OPEN: ${conference.name.htmlEscape()}\n")
+        append(conference.locationLine())
+        if (conference.date.isNotBlank()) append("🗓 ${conference.date.htmlEscape()}\n")
+        append("⏳ CFP closes ${conference.cfpEndDate.htmlEscape()}\n")
+        if (conference.cfpUrl().isNotBlank()) append("➡️ ${conference.cfpUrl().htmlEscape()}")
     }.trimEnd()
     ReminderKind.CLOSING_SOON -> buildString {
         val phrase = when (daysLeft) {
@@ -64,8 +91,9 @@ fun Reminder.render(): String = when (kind) {
             1L -> "closes TOMORROW"
             else -> "closes in $daysLeft days"
         }
-        append("⏰ CFP $phrase: ${conference.name}\n")
-        append("⏳ Deadline ${conference.cfpEndDate}\n")
-        if (conference.cfpUrl().isNotBlank()) append("➡️ ${conference.cfpUrl()}")
+        append("${importanceMarker(daysLeft)} ⏰ CFP $phrase: ${conference.name.htmlEscape()}\n")
+        append(conference.locationLine())
+        append("⏳ Deadline ${conference.cfpEndDate.htmlEscape()}\n")
+        if (conference.cfpUrl().isNotBlank()) append("➡️ ${conference.cfpUrl().htmlEscape()}")
     }.trimEnd()
 }

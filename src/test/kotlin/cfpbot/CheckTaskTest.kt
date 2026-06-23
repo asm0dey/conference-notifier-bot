@@ -62,4 +62,54 @@ class CheckTaskTest : StringSpec({
         runBlocking { task.run() }
         sent.size shouldBe afterFirst
     }
+
+    "sends a native location pin for conferences that have coordinates" {
+        val ds = memDs("checktask_loc")
+        runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.addChat(1L)
+
+        val locations = mutableListOf<Triple<Long, Double, Double>>()
+        val notifier = object : Notifier {
+            override suspend fun send(chatId: Long, text: String) {}
+            override suspend fun sendLocation(chatId: Long, lat: Double, lon: Double) {
+                locations += Triple(chatId, lat, lon)
+            }
+        }
+        val feedWithCoords = """
+            [{"name":"KotlinConf","cfpLink":"https://cfp","cfpEndDate":"5 June 2026",
+              "locationName":"Copenhagen","coordinates":{"lat":55.67,"lon":12.56}}]
+        """.trimIndent()
+        val task = CheckTask(sourceReturning(feedWithCoords), repo, notifier,
+            clock = { LocalDate.of(2026, 6, 1) })
+
+        runBlocking { task.run() }
+
+        // OPENED + CLOSING_SOON both reference the same conf; both fire a pin to chat 1.
+        locations.map { it.first }.toSet() shouldBe setOf(1L)
+        locations.first().second shouldBe 55.67
+        locations.first().third shouldBe 12.56
+    }
+
+    "sends no location pin when the conference has no coordinates" {
+        val ds = memDs("checktask_noloc")
+        runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.addChat(1L)
+
+        val locations = mutableListOf<Triple<Long, Double, Double>>()
+        val notifier = object : Notifier {
+            override suspend fun send(chatId: Long, text: String) {}
+            override suspend fun sendLocation(chatId: Long, lat: Double, lon: Double) {
+                locations += Triple(chatId, lat, lon)
+            }
+        }
+        // `feed` (no coordinates) is the existing top-level val in this test file.
+        val task = CheckTask(sourceReturning(feed), repo, notifier,
+            clock = { LocalDate.of(2026, 6, 1) })
+
+        runBlocking { task.run() }
+
+        locations shouldBe emptyList()
+    }
 })

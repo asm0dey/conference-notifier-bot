@@ -5,12 +5,15 @@ import eu.vendeli.tgbot.annotations.CommandHandler
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.component.ProcessedUpdate
 import eu.vendeli.tgbot.types.component.getChat
+import java.time.LocalDate
 
-// ponytail: process-global singleton so the framework-invoked top-level handler can reach the repo.
-// Single-process bot, set once in main(); promote to the framework's ClassManager DI only if handlers multiply.
+// ponytail: process-global singleton so the framework-invoked top-level handlers can reach
+// dependencies. Single-process bot, set once in main().
 object Registry {
     lateinit var repo: StateRepository
     lateinit var check: CheckTask
+    lateinit var source: ConferenceSource
+    lateinit var notifier: Notifier
 }
 
 @CommandHandler(["/start"])
@@ -28,4 +31,22 @@ suspend fun check(update: ProcessedUpdate, bot: TelegramBot) {
     val chat = update.getChat()
     Registry.check.run()
     message { "🔄 Ran the CFP check now." }.send(chat.id, bot)
+}
+
+@CommandHandler(["/active"])
+suspend fun active(update: ProcessedUpdate, bot: TelegramBot) {
+    val chat = update.getChat()
+    val reminders = activeReminders(Registry.source.fetch(), LocalDate.now())
+    if (reminders.isEmpty()) {
+        Registry.notifier.send(chat.id, "No active CFPs right now.")
+        return
+    }
+    for (reminder in reminders) {
+        Registry.notifier.send(chat.id, reminder.render())
+        val conf = reminder.conference
+        if (conf.hasMap()) {
+            val coords = conf.coordinates!!
+            Registry.notifier.sendLocation(chat.id, coords.lat, coords.lon)
+        }
+    }
 }

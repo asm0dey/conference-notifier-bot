@@ -18,4 +18,17 @@ class ConferenceTest : StringSpec({
     "garbage cfp end date yields null" {
         Conference(name = "X", cfpEndDate = "soon-ish").cfpClose().shouldBeNull()
     }
+    "parses coordinates and builds a maps url" {
+        val c = Conference(name = "X", coordinates = Coordinates(50.8467, 4.3525))
+        c.hasMap() shouldBe true
+        c.mapsUrl() shouldBe "https://maps.google.com/?q=50.8467,4.3525"
+    }
+    "treats 0,0 coordinates as no map (online confs)" {
+        Conference(name = "X", coordinates = Coordinates(0.0, 0.0)).hasMap() shouldBe false
+        Conference(name = "X", coordinates = Coordinates(0.0, 0.0)).mapsUrl() shouldBe null
+    }
+    "missing coordinates means no map" {
+        Conference(name = "X").hasMap() shouldBe false
+        Conference(name = "X").mapsUrl() shouldBe null
+    }
 })
