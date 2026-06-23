@@ -19,7 +19,7 @@
 - Telegram messages are **plain text** (no parse mode) — Telegram auto-links URLs; avoids Markdown escaping bugs.
 - Idioms (from project rules): `val` over `var`, `data class` for value types, nullable `T?` over `Optional`, kotlinx-coroutines for async, Ktor for HTTP, **Kotest** specs + matchers (`shouldBe`) for tests, extension functions over util classes.
 - Package root: `cfpbot`. Source under `src/main/kotlin/cfpbot/`, tests under `src/test/kotlin/cfpbot/`.
-- Pinned versions (validate against Maven Central if resolution fails): telegram-bot/ktnip `9.5.0`, ktor `3.4.0`, kotlinx-serialization-json `1.8.0`, kotlinx-coroutines `1.10.2`, db-scheduler `15.1.1`, H2 `2.3.232`, HikariCP `6.2.1`, slf4j-simple `2.0.16`, kotest `5.9.1`.
+- Pinned versions (latest on Maven Central as of 2026-06-23, verified via repo1 metadata): telegram-bot/ktnip `9.5.0`, ktor `3.5.0`, kotlinx-serialization-json `1.11.0`, kotlinx-coroutines `1.10.2`, db-scheduler `16.12.0`, H2 `2.3.232`, HikariCP `7.1.0`, slf4j-simple `2.0.16`, kotest `6.2.1`. Held back deliberately: Kotlin `2.3.0` and KSP `2.3.8` (telegram-bot 9.5.0 + project rule target 2.3.x — do NOT jump to Kotlin 2.4); slf4j-simple `2.0.16` (latest is an alpha).
 
 ---
 
@@ -61,14 +61,14 @@ Create `gradle/libs.versions.toml`:
 kotlin = "2.3.0"
 ksp = "2.3.8"
 telegrambot = "9.5.0"
-ktor = "3.4.0"
-serialization = "1.8.0"
+ktor = "3.5.0"
+serialization = "1.11.0"
 coroutines = "1.10.2"
-dbscheduler = "15.1.1"
+dbscheduler = "16.12.0"
 h2 = "2.3.232"
-hikari = "6.2.1"
+hikari = "7.1.0"
 slf4j = "2.0.16"
-kotest = "5.9.1"
+kotest = "6.2.1"
 
 [libraries]
 telegram-bot = { module = "eu.vendeli:telegram-bot", version.ref = "telegrambot" }
@@ -560,7 +560,7 @@ class ConferenceSourceTest : StringSpec({
 Add the Ktor mock engine to test dependencies. In `build.gradle.kts` add under `dependencies`:
 
 ```kotlin
-    testImplementation("io.ktor:ktor-client-mock:3.4.0")
+    testImplementation("io.ktor:ktor-client-mock:3.5.0")
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -730,7 +730,8 @@ private val SCHEMA = listOf(
         last_daily_reminder DATE
     )
     """.trimIndent(),
-    // db-scheduler's table (H2-compatible).
+    // db-scheduler 16.x table (H2-compatible). The `priority` column + indexes
+    // were added in db-scheduler 16 — canonical schema from the 16.x release.
     """
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
         task_name VARCHAR(255) NOT NULL,
@@ -744,9 +745,13 @@ private val SCHEMA = listOf(
         consecutive_failures INT,
         last_heartbeat TIMESTAMP WITH TIME ZONE,
         version BIGINT NOT NULL,
+        priority SMALLINT,
         PRIMARY KEY (task_name, task_instance)
     )
     """.trimIndent(),
+    "CREATE INDEX IF NOT EXISTS execution_time_idx ON scheduled_tasks (execution_time)",
+    "CREATE INDEX IF NOT EXISTS last_heartbeat_idx ON scheduled_tasks (last_heartbeat)",
+    "CREATE INDEX IF NOT EXISTS priority_execution_time_idx ON scheduled_tasks (priority DESC, execution_time ASC)",
 )
 
 fun runDdl(ds: DataSource) {
@@ -1135,7 +1140,7 @@ fun startScheduler(ds: DataSource, check: CheckTask, runAt: LocalTime): Schedule
 }
 ```
 
-> db-scheduler API note: `Scheduler.create(dataSource, knownTasks...)` registers recurring tasks; `.start()` schedules them and runs any missed executions (persisted in `scheduled_tasks`). If the 15.x builder signature differs, the equivalent is `Scheduler.create(ds).startTasks(task).threads(1).build()` — check the resolved `Scheduler` class.
+> db-scheduler API note (targeting **16.x**): `Scheduler.create(dataSource, knownTasks...)` registers recurring tasks; `.start()` schedules them and runs any missed executions (persisted in `scheduled_tasks`). If the 16.x builder signature differs, the equivalent is `Scheduler.create(ds).startTasks(task).threads(1).build()` — check the resolved `Scheduler` class. db-scheduler 16 may have changed the `scheduled_tasks` schema vs the DDL in Task 5 — if startup complains about a column/type mismatch, align the DDL in `Db.kt` with the 16.x schema (db-scheduler ships the canonical `postgresql.sql`/H2-compatible DDL; copy from the 16.x release).
 
 - [ ] **Step 2: Write the entrypoint**
 
