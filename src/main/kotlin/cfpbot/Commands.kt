@@ -42,11 +42,15 @@ suspend fun active(update: ProcessedUpdate, bot: TelegramBot) {
         return
     }
     for (reminder in reminders) {
-        Registry.notifier.send(chat.id, reminder.render())
+        // Don't let one failed/rate-limited send (429) abort the listing with a stack trace —
+        // drop it and continue. /active is on-demand, so re-run to retry.
+        runCatching { Registry.notifier.send(chat.id, reminder.render()) }
+            .onFailure { System.err.println("cfpbot: /active send failed (${it.javaClass.simpleName})") }
         val conf = reminder.conference
         if (conf.hasMap()) {
             val coords = conf.coordinates!!
-            Registry.notifier.sendLocation(chat.id, coords.lat, coords.lon)
+            runCatching { Registry.notifier.sendLocation(chat.id, coords.lat, coords.lon) }
+                .onFailure { System.err.println("cfpbot: /active location failed (${it.javaClass.simpleName})") }
         }
     }
 }
