@@ -41,6 +41,9 @@ a **clickable Google-Maps location** plus a **native Telegram map pin**:
 timely pushes. It enqueues one message per open CFP and delivers them reliably even past
 Telegram's per-chat rate limit (see [How it works](#how-it-works)).
 
+The bot registers these as a Telegram **command menu** on startup, so clients autocomplete
+them (and show a menu button) when you type `/`.
+
 ## Setup
 
 1. Create a bot with [@BotFather](https://t.me/BotFather) and copy the token.
