@@ -4,3 +4,7 @@ data/
 *.mv.db
 *.trace.db
 .kotlin/
+
+# Secrets — never commit
+.env
+.env.*
