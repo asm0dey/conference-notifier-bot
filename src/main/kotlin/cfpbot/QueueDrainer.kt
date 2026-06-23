@@ -14,9 +14,13 @@ class QueueDrainer(
         while (true) {
             val item = queue.claimAndRemove(blocked) ?: break
             try {
-                notifier.send(item.chatId, item.text)
+                // Each row is a single send: a row with coordinates is a location pin, otherwise a
+                // text message. Keeping text and pin in separate rows means a failed pin re-queues
+                // only the pin — it never re-sends (duplicates) the text.
                 if (item.lat != null && item.lon != null) {
                     notifier.sendLocation(item.chatId, item.lat, item.lon)
+                } else {
+                    notifier.send(item.chatId, item.text)
                 }
             } catch (e: Exception) {
                 blocked += item.chatId

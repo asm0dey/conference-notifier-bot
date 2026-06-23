@@ -43,13 +43,15 @@ suspend fun active(update: ProcessedUpdate) {
         Registry.notifier.send(chat.id, "No active CFPs right now.")
         return
     }
-    // Enqueue one message per open CFP, then drain ASAP. A per-chat rate limit during the drain
-    // leaves the remainder queued for the recurring drain-queue task to deliver within ~2 min.
+    // Enqueue the text and the map pin as SEPARATE rows, then drain ASAP. Separate rows mean a
+    // rate-limited pin re-queues only the pin (never re-sends the text). A per-chat rate limit
+    // during the drain leaves the remainder queued for the recurring drain-queue task (~2 min).
     for (reminder in reminders) {
+        Registry.queue.enqueue(chat.id, reminder.render(), null, null)
         val conf = reminder.conference
-        val lat = if (conf.hasMap()) conf.coordinates!!.lat else null
-        val lon = if (conf.hasMap()) conf.coordinates!!.lon else null
-        Registry.queue.enqueue(chat.id, reminder.render(), lat, lon)
+        if (conf.hasMap()) {
+            Registry.queue.enqueue(chat.id, "", conf.coordinates!!.lat, conf.coordinates.lon)
+        }
     }
     Registry.drainer.drain()
 }
