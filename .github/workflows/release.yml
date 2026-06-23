@@ -89,7 +89,7 @@ jobs:
       # Creates tag v$VERSION at this commit, generates notes, attaches the binary.
       # (This tag does NOT retrigger the workflow — it only runs on push to main.)
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.TAG }}
           name: ${{ env.TAG }}
