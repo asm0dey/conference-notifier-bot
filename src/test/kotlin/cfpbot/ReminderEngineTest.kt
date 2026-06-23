@@ -93,4 +93,9 @@ class ReminderEngineTest : StringSpec({
         val c = conf("KotlinConf", "1 June 2026")
         Reminder(c, ReminderKind.CLOSING_SOON, 0L).render() shouldContain "TODAY"
     }
+
+    "CLOSING_SOON message says closes tomorrow when daysLeft is 1" {
+        val c = conf("KotlinConf", "2 June 2026")
+        Reminder(c, ReminderKind.CLOSING_SOON, 1L).render() shouldContain "TOMORROW"
+    }
 })

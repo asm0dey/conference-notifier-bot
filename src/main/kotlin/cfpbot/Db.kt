@@ -2,7 +2,6 @@ package cfpbot
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
-import java.time.LocalDate
 import javax.sql.DataSource
 
 fun createDataSource(dbPath: String): HikariDataSource =

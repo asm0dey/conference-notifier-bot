@@ -47,4 +47,8 @@ restarts never reset progress and a missed day self-heals on the next run. The s
 itself is persisted by [db-scheduler](https://github.com/kagkarlsson/db-scheduler),
 which also runs any missed execution on startup.
 
+The "CFP opened" notice uses first-seen-open semantics globally — a chat that registers
+after a CFP was already seen open will not receive that CFP's "opened" message, but will
+still get the daily reminders during its final week.
+
 Run the tests with `./gradlew test`.
