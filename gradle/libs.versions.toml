@@ -10,7 +10,7 @@ h2 = "2.4.240"
 hikari = "7.1.0"
 slf4j = "2.0.18"
 kotest = "6.2.1"
-graalvm-native = "1.1.2"
+graalvm-native = "1.1.3"
 
 [libraries]
 telegram-bot = { module = "eu.vendeli:telegram-bot", version.ref = "telegrambot" }
