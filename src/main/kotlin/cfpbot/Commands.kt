@@ -4,6 +4,7 @@ import eu.vendeli.tgbot.TelegramBot
 import eu.vendeli.tgbot.annotations.CommandHandler
 import eu.vendeli.tgbot.annotations.UpdateHandler
 import eu.vendeli.tgbot.api.message.message
+import eu.vendeli.tgbot.types.component.ChatReference
 import eu.vendeli.tgbot.types.component.ProcessedUpdate
 import eu.vendeli.tgbot.types.component.UpdateType
 import eu.vendeli.tgbot.types.component.getChat
@@ -25,9 +26,7 @@ object Registry {
 // contact registers the chat silently. MERGE makes repeat contact a no-op.
 @UpdateHandler([UpdateType.MESSAGE])
 suspend fun registerContact(update: ProcessedUpdate) {
-    runCatching {
-        Registry.repo.addChat(update.getChat().id)
-    }
+    (update as? ChatReference)?.chat?.id?.let { Registry.repo.addChat(it) }
 }
 
 @CommandHandler(["/start"])
