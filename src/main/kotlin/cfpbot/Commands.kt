@@ -2,8 +2,11 @@ package cfpbot
 
 import eu.vendeli.tgbot.TelegramBot
 import eu.vendeli.tgbot.annotations.CommandHandler
+import eu.vendeli.tgbot.annotations.UpdateHandler
 import eu.vendeli.tgbot.api.message.message
+import eu.vendeli.tgbot.types.component.ChatReference
 import eu.vendeli.tgbot.types.component.ProcessedUpdate
+import eu.vendeli.tgbot.types.component.UpdateType
 import eu.vendeli.tgbot.types.component.getChat
 import java.time.LocalDate
 
@@ -18,10 +21,17 @@ object Registry {
     lateinit var drainer: QueueDrainer
 }
 
+// Auto-register every chat that sends any message — command or plain text. vendeli runs
+// @UpdateHandler in parallel for every matching update, so there is no opt-in step: first
+// contact registers the chat silently. MERGE makes repeat contact a no-op.
+@UpdateHandler([UpdateType.MESSAGE])
+suspend fun registerContact(update: ProcessedUpdate) {
+    (update as? ChatReference)?.chat?.id?.let { Registry.repo.addChat(it) }
+}
+
 @CommandHandler(["/start"])
 suspend fun start(update: ProcessedUpdate, bot: TelegramBot) {
     val chat = update.getChat()
-    Registry.repo.addChat(chat.id)
     message {
         "✅ Registered this chat for Java conference CFP notifications.\n" +
             "You'll get a heads-up when a CFP opens and daily reminders in its final week."

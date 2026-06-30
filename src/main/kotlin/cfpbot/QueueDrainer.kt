@@ -5,6 +5,7 @@ const val MAX_SEND_ATTEMPTS: Int = 5
 class QueueDrainer(
     private val queue: SendQueueRepository,
     private val notifier: Notifier,
+    private val repo: StateRepository,
 ) {
     // Drains the queue oldest-first. Telegram limits are per-chat, so a failing chat is added to
     // `blocked` (skipped for the rest of this pass) while other chats keep draining. Failed items
@@ -22,6 +23,10 @@ class QueueDrainer(
                 } else {
                     notifier.send(item.chatId, item.text)
                 }
+            } catch (e: BotBlockedException) {
+                // 403 is permanent: prune the chat and drop the item (no requeue).
+                repo.removeChat(item.chatId)
+                blocked += item.chatId
             } catch (e: Exception) {
                 blocked += item.chatId
                 val nextAttempts = item.attempts + 1

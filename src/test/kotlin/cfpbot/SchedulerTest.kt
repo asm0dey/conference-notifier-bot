@@ -28,7 +28,7 @@ class SchedulerTest : StringSpec({
         val notifier = Notifier { _, _ -> }
         val check = CheckTask(source, repo, notifier)
         val queue = SendQueueRepository(ds)
-        val drainer = QueueDrainer(queue, notifier)
+        val drainer = QueueDrainer(queue, notifier, repo)
 
         val scheduler = startScheduler(ds, check, LocalTime.of(9, 0), drainer)
 

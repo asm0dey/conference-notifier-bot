@@ -18,21 +18,31 @@ class CheckTask(
         val state = repo.loadState()
         val (reminders, newState) = computeReminders(conferences, state, today)
 
+        val blocked = mutableSetOf<Long>()
         for (reminder in reminders) {
-            val text = reminder.render()
-            val conf = reminder.conference
             for (chatId in state.chats) {
-                // One failing chat (rate-limit / bad id) must not abort the batch and skip the
-                // persist below — that would re-send everything next run. Drop the failed message.
-                runCatching { notifier.send(chatId, text) }
-                    .onFailure { System.err.println("cfpbot: send to $chatId failed (${it.javaClass.simpleName})") }
-                if (conf.hasMap()) {
-                    val coords = conf.coordinates!!
-                    runCatching { notifier.sendLocation(chatId, coords.lat, coords.lon) }
-                        .onFailure { System.err.println("cfpbot: location to $chatId failed (${it.javaClass.simpleName})") }
-                }
+                if (chatId !in blocked && !deliver(reminder, chatId)) blocked += chatId
             }
         }
         repo.saveReminderState(newState.confs)
+    }
+
+    // Sends one reminder (text + optional location pin) to one chat. Returns true to keep the
+    // chat (success, or a transient failure we just drop), false if the chat blocked the bot —
+    // a 403 is permanent, so we prune it and the caller skips it for the rest of the run.
+    private suspend fun deliver(reminder: Reminder, chatId: Long): Boolean = try {
+        notifier.send(chatId, reminder.render())
+        val conf = reminder.conference
+        if (conf.hasMap()) {
+            val coords = conf.coordinates!!
+            notifier.sendLocation(chatId, coords.lat, coords.lon)
+        }
+        true
+    } catch (e: BotBlockedException) {
+        repo.removeChat(chatId)
+        false
+    } catch (e: Exception) {
+        System.err.println("cfpbot: send to $chatId failed (${e.javaClass.simpleName})")
+        true
     }
 }

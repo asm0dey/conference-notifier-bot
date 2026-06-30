@@ -50,4 +50,17 @@ class StateRepositoryTest : StringSpec({
         state.confs.keys shouldBe setOf("New|1 July 2026")
         state.chats shouldBe setOf(7L)
     }
+
+    "removeChat deletes only the target chat" {
+        val ds = memDataSource("remove_chat")
+        runDdl(ds)
+        val repo = StateRepository(ds)
+
+        repo.addChat(1L)
+        repo.addChat(2L)
+        repo.removeChat(1L)
+        repo.removeChat(1L) // idempotent: removing an absent chat is a no-op
+
+        repo.loadState().chats shouldBe setOf(2L)
+    }
 })

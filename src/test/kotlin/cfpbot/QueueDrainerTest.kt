@@ -15,6 +15,7 @@ private fun drainerDs(name: String) = HikariDataSource(HikariConfig().apply {
 class QueueDrainerTest : StringSpec({
     "drains text rows and location rows as independent single-purpose sends" {
         val ds = drainerDs("drain_ok"); runDdl(ds)
+        val repo = StateRepository(ds)
         val queue = SendQueueRepository(ds)
         queue.enqueue(1L, "a", null, null)    // text row
         queue.enqueue(1L, "", 10.0, 20.0)     // location row (no text)
@@ -27,7 +28,7 @@ class QueueDrainerTest : StringSpec({
             override suspend fun sendLocation(chatId: Long, lat: Double, lon: Double) { pins += lat to lon }
         }
 
-        runBlocking { QueueDrainer(queue, notifier).drain() }
+        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
 
         sent shouldContainExactlyInAnyOrder listOf("a", "c")     // only text rows -> send
         pins shouldContainExactlyInAnyOrder listOf(10.0 to 20.0) // location row -> pin only
@@ -36,6 +37,7 @@ class QueueDrainerTest : StringSpec({
 
     "a failing pin re-queues only the pin and never re-sends the text" {
         val ds = drainerDs("drain_pin_fail"); runDdl(ds)
+        val repo = StateRepository(ds)
         val queue = SendQueueRepository(ds)
         queue.enqueue(1L, "jdd text", null, null) // text row (succeeds)
         queue.enqueue(1L, "", 50.0, 19.0)         // pin row (will fail)
@@ -48,7 +50,7 @@ class QueueDrainerTest : StringSpec({
             }
         }
 
-        runBlocking { QueueDrainer(queue, notifier).drain() }
+        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
 
         sent shouldBe listOf("jdd text")   // text delivered exactly once, no duplicate
         queue.count() shouldBe 1           // only the pin re-queued
@@ -57,6 +59,7 @@ class QueueDrainerTest : StringSpec({
 
     "a failing chat is backed off and its items re-queued, while other chats still drain" {
         val ds = drainerDs("drain_block"); runDdl(ds)
+        val repo = StateRepository(ds)
         val queue = SendQueueRepository(ds)
         queue.enqueue(1L, "fail-1", null, null) // chat 1 will fail
         queue.enqueue(1L, "fail-2", null, null) // chat 1 again
@@ -70,7 +73,7 @@ class QueueDrainerTest : StringSpec({
             }
         }
 
-        runBlocking { QueueDrainer(queue, notifier).drain() }
+        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
 
         sent shouldBe listOf("ok")
         queue.count() shouldBe 2
@@ -83,6 +86,7 @@ class QueueDrainerTest : StringSpec({
 
     "an item is dropped (not re-queued) once it reaches the attempt cap" {
         val ds = drainerDs("drain_poison"); runDdl(ds)
+        val repo = StateRepository(ds)
         val queue = SendQueueRepository(ds)
         // already at MAX-1 attempts: the next failure hits the cap and drops it
         queue.enqueue(1L, "poison", null, null, attempts = MAX_SEND_ATTEMPTS - 1)
@@ -91,8 +95,25 @@ class QueueDrainerTest : StringSpec({
             override suspend fun send(chatId: Long, text: String) { throw RuntimeException("429") }
         }
 
-        runBlocking { QueueDrainer(queue, notifier).drain() }
+        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
 
         queue.count() shouldBe 0            // dropped, not re-queued
+    }
+
+    "a 403 prunes the chat and drops its queued item without re-queueing" {
+        val ds = drainerDs("drain_blocked"); runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.addChat(1L)
+        val queue = SendQueueRepository(ds)
+        queue.enqueue(1L, "blocked text", null, null)
+
+        val notifier = object : Notifier {
+            override suspend fun send(chatId: Long, text: String) { throw BotBlockedException(chatId) }
+        }
+
+        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
+
+        repo.loadState().chats shouldBe emptySet()   // chat pruned
+        queue.count() shouldBe 0                      // item dropped, not re-queued
     }
 })
