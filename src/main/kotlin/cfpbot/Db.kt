@@ -78,6 +78,15 @@ class StateRepository(private val ds: DataSource) {
         }
     }
 
+    fun removeChat(chatId: Long) {
+        ds.connection.use { conn ->
+            conn.prepareStatement("DELETE FROM registered_chat WHERE chat_id = ?").use { ps ->
+                ps.setLong(1, chatId)
+                ps.executeUpdate()
+            }
+        }
+    }
+
     fun loadState(): BotState {
         val chats = mutableSetOf<Long>()
         val confs = mutableMapOf<String, ConfState>()
