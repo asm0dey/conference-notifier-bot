@@ -112,4 +112,24 @@ class CheckTaskTest : StringSpec({
 
         locations shouldBe emptyList()
     }
+
+    "removes a chat that has blocked the bot and keeps delivering to others" {
+        val ds = memDs("checktask_blocked")
+        runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.addChat(1L)
+        repo.addChat(2L)
+
+        val sent = mutableListOf<Long>()
+        val notifier = Notifier { chatId, _ ->
+            if (chatId == 1L) throw BotBlockedException(1L)
+            sent += chatId
+        }
+        val task = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
+
+        runBlocking { task.run() }
+
+        repo.loadState().chats shouldBe setOf(2L)        // chat 1 pruned
+        sent.toSet() shouldBe setOf(2L)                  // chat 2 still got delivered
+    }
 })
