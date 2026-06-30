@@ -36,7 +36,7 @@ suspend fun main() {
     }
     val notifier = TelegramNotifier(bot)
     val queue = SendQueueRepository(ds)
-    val drainer = QueueDrainer(queue, notifier)
+    val drainer = QueueDrainer(queue, notifier, repo)
     val check = CheckTask(source, repo, notifier)
     Registry.check = check
     Registry.source = source
