@@ -20,26 +20,29 @@ class CheckTask(
 
         val blocked = mutableSetOf<Long>()
         for (reminder in reminders) {
-            val text = reminder.render()
-            val conf = reminder.conference
             for (chatId in state.chats) {
-                if (chatId in blocked) continue // already pruned this run; don't retry
-                try {
-                    notifier.send(chatId, text)
-                    if (conf.hasMap()) {
-                        val coords = conf.coordinates!!
-                        notifier.sendLocation(chatId, coords.lat, coords.lon)
-                    }
-                } catch (e: BotBlockedException) {
-                    // 403 is permanent: drop the chat so future runs skip it.
-                    repo.removeChat(chatId)
-                    blocked += chatId
-                } catch (e: Exception) {
-                    // Transient/other failure: drop just this message, keep the chat, keep the batch.
-                    System.err.println("cfpbot: send to $chatId failed (${e.javaClass.simpleName})")
-                }
+                if (chatId !in blocked && !deliver(reminder, chatId)) blocked += chatId
             }
         }
         repo.saveReminderState(newState.confs)
+    }
+
+    // Sends one reminder (text + optional location pin) to one chat. Returns true to keep the
+    // chat (success, or a transient failure we just drop), false if the chat blocked the bot —
+    // a 403 is permanent, so we prune it and the caller skips it for the rest of the run.
+    private suspend fun deliver(reminder: Reminder, chatId: Long): Boolean = try {
+        notifier.send(chatId, reminder.render())
+        val conf = reminder.conference
+        if (conf.hasMap()) {
+            val coords = conf.coordinates!!
+            notifier.sendLocation(chatId, coords.lat, coords.lon)
+        }
+        true
+    } catch (e: BotBlockedException) {
+        repo.removeChat(chatId)
+        false
+    } catch (e: Exception) {
+        System.err.println("cfpbot: send to $chatId failed (${e.javaClass.simpleName})")
+        true
     }
 }
