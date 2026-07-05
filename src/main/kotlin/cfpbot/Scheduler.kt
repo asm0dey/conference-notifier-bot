@@ -22,7 +22,12 @@ fun drainQueueTask(drainer: QueueDrainer) =
         }
 
 fun startScheduler(ds: DataSource, check: CheckTask, runAt: LocalTime, drainer: QueueDrainer): Scheduler {
-    val scheduler = Scheduler.create(ds, cfpCheckTask(check, runAt), drainQueueTask(drainer))
+    // startTasks(...) — NOT create(ds, tasks...) — is what inserts the initial execution row for a
+    // static recurring task. create()'s varargs only register a task as *known* (executable if a row
+    // already exists); without startTasks the daily check + queue drain never fire. See db-scheduler
+    // README "Recurring task (static)".
+    val scheduler = Scheduler.create(ds)
+        .startTasks(cfpCheckTask(check, runAt), drainQueueTask(drainer))
         .threads(2)
         .build()
     scheduler.start()
