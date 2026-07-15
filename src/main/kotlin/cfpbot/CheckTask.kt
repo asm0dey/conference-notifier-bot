@@ -15,6 +15,10 @@ class CheckTask(
     suspend fun run() = runLock.withLock {
         val today = clock()
         val conferences = source.fetch()
+        // An empty-but-successful feed (HTTP 200 with []) is an upstream blip, not "every conference
+        // closed". Skipping the run avoids pruneTokens(emptySet) wiping every user's mutes (and
+        // saveReminderState wiping reminder_state). Fetch *errors* already throw before this point.
+        if (conferences.isEmpty()) return@withLock
         val state = repo.loadState()
         val (reminders, newState) = computeReminders(conferences, state, today)
         val muted = repo.loadMuted()

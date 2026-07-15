@@ -179,4 +179,20 @@ class CheckTaskTest : StringSpec({
         repo.loadMuted() shouldBe emptyMap()
         repo.mutedConfsFor(1L) shouldBe emptyList()
     }
+
+    "an empty-but-successful feed does not wipe existing mute state" {
+        val ds = memDs("checktask_empty_feed"); runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.upsertConfDirectory("t", "K|5 June 2026", "K")
+        repo.mute(1L, "t")
+        repo.recordSentReminder(1L, 10L, "t")
+
+        val notifier = Notifier { _, _ -> }
+        val task = CheckTask(sourceReturning("[]"), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
+
+        runBlocking { task.run() }
+
+        repo.loadMuted()[1L] shouldBe setOf("t")
+        repo.tokenForMessage(1L, 10L) shouldBe "t"
+    }
 })
