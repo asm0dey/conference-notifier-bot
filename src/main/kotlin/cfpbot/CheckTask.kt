@@ -21,20 +21,26 @@ class CheckTask(
         if (conferences.isEmpty()) return@withLock
         val state = repo.loadState()
         val (reminders, newState) = computeReminders(conferences, state, today)
-        val muted = repo.loadMuted()
 
+        broadcast(reminders, state.chats, repo.loadMuted())
+
+        repo.saveReminderState(newState.confs)
+        // Forget conferences that have closed: their tokens fall out of the open set.
+        repo.pruneTokens(newState.confs.keys.mapTo(mutableSetOf()) { confToken(it) })
+    }
+
+    // Delivers each reminder to every registered chat, skipping chats that muted the reminder's
+    // conference and chats that have blocked the bot (once a 403 is seen, skip them for this run).
+    private suspend fun broadcast(reminders: List<Reminder>, chats: Set<Long>, muted: Map<Long, Set<String>>) {
         val blocked = mutableSetOf<Long>()
         for (reminder in reminders) {
             val token = confToken(confKey(reminder.conference))
-            for (chatId in state.chats) {
+            for (chatId in chats) {
                 if (chatId in blocked) continue
                 if (token in (muted[chatId] ?: emptySet())) continue
                 if (!deliver(reminder, chatId, token)) blocked += chatId
             }
         }
-        repo.saveReminderState(newState.confs)
-        // Forget conferences that have closed: their tokens fall out of the open set.
-        repo.pruneTokens(newState.confs.keys.mapTo(mutableSetOf()) { confToken(it) })
     }
 
     // Sends one reminder (text + optional location pin) to one chat. Records the sent message so a
