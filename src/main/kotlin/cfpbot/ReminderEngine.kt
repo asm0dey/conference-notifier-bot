@@ -24,6 +24,12 @@ data class EngineResult(val reminders: List<Reminder>, val newState: BotState)
 
 fun confKey(c: Conference): String = "${c.name}|${c.cfpEndDate}"
 
+fun confToken(confKey: String): String =
+    java.security.MessageDigest.getInstance("SHA-256")
+        .digest(confKey.toByteArray())
+        .joinToString("") { "%02x".format(it) }
+        .take(12)
+
 fun computeReminders(
     conferences: List<Conference>,
     state: BotState,
