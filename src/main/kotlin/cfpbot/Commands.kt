@@ -5,6 +5,7 @@ import eu.vendeli.tgbot.annotations.CommandHandler
 import eu.vendeli.tgbot.annotations.UpdateHandler
 import eu.vendeli.tgbot.api.message.message
 import eu.vendeli.tgbot.types.component.ChatReference
+import eu.vendeli.tgbot.types.component.MessageUpdate
 import eu.vendeli.tgbot.types.component.ProcessedUpdate
 import eu.vendeli.tgbot.types.component.UpdateType
 import eu.vendeli.tgbot.types.component.getChat
@@ -64,4 +65,67 @@ suspend fun active(update: ProcessedUpdate) {
         }
     }
     Registry.drainer.drain()
+}
+
+// 🔕 Stop button on a reminder: callback data "stop?token=<token>" -> mute this conf for this chat.
+@CommandHandler.CallbackQuery(["stop"])
+suspend fun stopCallback(token: String, update: ProcessedUpdate, bot: TelegramBot) {
+    val chatId = update.getChat().id
+    Registry.repo.mute(chatId, token)
+    message { "🔕 Muted reminders for this conference. Send /muted to manage." }.send(chatId, bot)
+}
+
+// 🔔 Resume button (from the /muted list): callback data "resume?token=<token>".
+@CommandHandler.CallbackQuery(["resume"])
+suspend fun resumeCallback(token: String, update: ProcessedUpdate, bot: TelegramBot) {
+    val chatId = update.getChat().id
+    Registry.repo.unmute(chatId, token)
+    message { "🔔 Resumed reminders for this conference." }.send(chatId, bot)
+}
+
+// Reply /stop to a reminder message -> resolve the conference via sent_reminder, then mute.
+@CommandHandler(["/stop"])
+suspend fun stopCommand(update: ProcessedUpdate, bot: TelegramBot) {
+    toggleFromReply(update, bot, mute = true)
+}
+
+@CommandHandler(["/resume"])
+suspend fun resumeCommand(update: ProcessedUpdate, bot: TelegramBot) {
+    toggleFromReply(update, bot, mute = false)
+}
+
+private suspend fun toggleFromReply(update: ProcessedUpdate, bot: TelegramBot, mute: Boolean) {
+    val chatId = update.getChat().id
+    val repliedId = (update as? MessageUpdate)?.message?.replyToMessage?.messageId
+    val token = repliedId?.let { Registry.repo.tokenForMessage(chatId, it) }
+    if (token == null) {
+        message {
+            "Reply this to one of my reminder messages, or use the 🔕 button on a reminder."
+        }.send(chatId, bot)
+        return
+    }
+    if (mute) {
+        Registry.repo.mute(chatId, token)
+        message { "🔕 Muted reminders for this conference. Send /muted to manage." }.send(chatId, bot)
+    } else {
+        Registry.repo.unmute(chatId, token)
+        message { "🔔 Resumed reminders for this conference." }.send(chatId, bot)
+    }
+}
+
+// /muted -> list this chat's muted conferences, each with a 🔔 Resume button.
+@CommandHandler(["/muted"])
+suspend fun muted(update: ProcessedUpdate, bot: TelegramBot) {
+    val chatId = update.getChat().id
+    val confs = Registry.repo.mutedConfsFor(chatId)
+    if (confs.isEmpty()) {
+        message { "You have not muted any conferences." }.send(chatId, bot)
+        return
+    }
+    message { "🔕 Muted conferences:" }.inlineKeyboardMarkup {
+        for ((token, name) in confs) {
+            "🔔 Resume $name" callback "resume?token=$token"
+            newLine()
+        }
+    }.send(chatId, bot)
 }

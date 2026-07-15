@@ -49,6 +49,7 @@ suspend fun main() {
         botCommand("start", "Register this chat for CFP notifications")
         botCommand("check", "Run the CFP check now")
         botCommand("active", "List every currently-open CFP")
+        botCommand("muted", "List and un-mute conferences you've muted")
     }.send(bot)
 
     startScheduler(ds, check, runAt, drainer)
