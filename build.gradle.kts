@@ -24,7 +24,7 @@ dependencies {
 
     testImplementation(libs.kotest.runner)
     testImplementation(libs.kotest.assertions)
-    testImplementation("io.ktor:ktor-client-mock:3.5.1")
+    testImplementation(libs.ktor.client.mock)
 }
 
 kotlin {
