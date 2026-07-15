@@ -4,11 +4,7 @@ import eu.vendeli.tgbot.TelegramBot
 import eu.vendeli.tgbot.annotations.CommandHandler
 import eu.vendeli.tgbot.annotations.UpdateHandler
 import eu.vendeli.tgbot.api.message.message
-import eu.vendeli.tgbot.types.component.ChatReference
-import eu.vendeli.tgbot.types.component.MessageUpdate
-import eu.vendeli.tgbot.types.component.ProcessedUpdate
-import eu.vendeli.tgbot.types.component.UpdateType
-import eu.vendeli.tgbot.types.component.getChat
+import eu.vendeli.tgbot.types.component.*
 import java.time.LocalDate
 
 // ponytail: process-global singleton so the framework-invoked top-level handlers can reach

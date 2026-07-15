@@ -200,6 +200,7 @@ class StateRepository(private val ds: DataSource) {
                 } else {
                     val placeholders = liveTokens.joinToString(",") { "?" }
                     for (table in listOf("conf_directory", "muted_conf", "sent_reminder")) {
+                        @Suppress("SqlSourceToSinkFlow")
                         conn.prepareStatement(
                             "DELETE FROM $table WHERE token NOT IN ($placeholders)",
                         ).use { ps ->

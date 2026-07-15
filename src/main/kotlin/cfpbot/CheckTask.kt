@@ -56,7 +56,7 @@ class CheckTask(
             notifier.sendLocation(chatId, coords.lat, coords.lon)
         }
         true
-    } catch (e: BotBlockedException) {
+    } catch (_: BotBlockedException) {
         repo.removeChat(chatId)
         false
     } catch (e: Exception) {

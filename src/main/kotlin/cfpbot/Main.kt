@@ -2,10 +2,11 @@ package cfpbot
 
 import eu.vendeli.tgbot.TelegramBot
 import eu.vendeli.tgbot.api.botactions.setMyCommands
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.*
+import io.ktor.client.engine.cio.*
 import kotlinx.coroutines.delay
 import java.time.LocalTime
+import kotlin.time.Duration.Companion.seconds
 
 suspend fun main() {
     val token = System.getenv("BOT_TOKEN")
@@ -62,7 +63,7 @@ suspend fun main() {
         } catch (e: Exception) {
             System.err.println("cfpbot: update listener error (${e.javaClass.simpleName}); restarting in 5s")
             runCatching { bot.update.stopListener() }
-            delay(5_000)
+            delay(5.seconds)
         }
     }
 }

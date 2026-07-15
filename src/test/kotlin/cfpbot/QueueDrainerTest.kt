@@ -3,8 +3,8 @@ package cfpbot
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
 
 private fun drainerDs(name: String) = HikariDataSource(HikariConfig().apply {
     jdbcUrl = "jdbc:h2:mem:$name;DB_CLOSE_DELAY=-1"
@@ -65,11 +65,9 @@ class QueueDrainerTest : StringSpec({
         queue.enqueue(2L, "ok", null, null)     // chat 2 succeeds
 
         val sent = mutableListOf<String>()
-        val notifier = object : Notifier {
-            override suspend fun send(chatId: Long, text: String) {
-                if (chatId == 1L) throw RuntimeException("429")
-                sent += text
-            }
+        val notifier = Notifier { chatId, text ->
+            if (chatId == 1L) throw RuntimeException("429")
+            sent += text
         }
 
         QueueDrainer(queue, notifier, repo).drain()
@@ -90,9 +88,7 @@ class QueueDrainerTest : StringSpec({
         // already at MAX-1 attempts: the next failure hits the cap and drops it
         queue.enqueue(1L, "poison", null, null, attempts = MAX_SEND_ATTEMPTS - 1)
 
-        val notifier = object : Notifier {
-            override suspend fun send(chatId: Long, text: String) { throw RuntimeException("429") }
-        }
+        val notifier = Notifier { _, _ -> throw RuntimeException("429") }
 
         QueueDrainer(queue, notifier, repo).drain()
 
@@ -106,9 +102,7 @@ class QueueDrainerTest : StringSpec({
         val queue = SendQueueRepository(ds)
         queue.enqueue(1L, "blocked text", null, null)
 
-        val notifier = object : Notifier {
-            override suspend fun send(chatId: Long, text: String) { throw BotBlockedException(chatId) }
-        }
+        val notifier = Notifier { chatId, _ -> throw BotBlockedException(chatId) }
 
         QueueDrainer(queue, notifier, repo).drain()
 

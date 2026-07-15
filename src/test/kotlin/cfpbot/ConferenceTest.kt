@@ -1,8 +1,8 @@
 package cfpbot
 
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.shouldBe
 import java.time.LocalDate
 
 class ConferenceTest : StringSpec({

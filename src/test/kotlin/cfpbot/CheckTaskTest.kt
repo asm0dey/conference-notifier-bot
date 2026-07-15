@@ -3,12 +3,11 @@ package cfpbot
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldHaveSize
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.http.HttpStatusCode
+import io.kotest.matchers.shouldBe
+import io.ktor.client.*
+import io.ktor.client.engine.mock.*
+import io.ktor.http.*
 import java.time.LocalDate
 
 class CheckTaskTest : StringSpec({
@@ -143,7 +142,7 @@ class CheckTaskTest : StringSpec({
         val sent = mutableListOf<Pair<Long, String>>()
         val notifier = object : Notifier {
             override suspend fun send(chatId: Long, text: String) { sent += chatId to text }
-            override suspend fun sendReminder(chatId: Long, text: String, stopToken: String): Long? {
+            override suspend fun sendReminder(chatId: Long, text: String, stopToken: String): Long {
                 sent += chatId to text
                 return chatId * 100 // deterministic fake message id
             }

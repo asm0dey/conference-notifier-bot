@@ -62,7 +62,7 @@ graalvmNative {
             // Surgical, not the whole kotlinx.coroutines package — broad init would drag
             // dispatcher thread pools into the image heap (a worse error).
             buildArgs.add("--initialize-at-build-time=kotlinx.coroutines.CoroutineName")
-            buildArgs.add("--initialize-at-build-time=kotlinx.coroutines.CoroutineName\$Key")
+            buildArgs.add($$"--initialize-at-build-time=kotlinx.coroutines.CoroutineName$Key")
             // Ktor's NonceKt.<clinit> spins a background nonce-generator coroutine; force it to
             // run-time init so that live coroutine doesn't land in the image heap (known Ktor gotcha).
             buildArgs.add("--initialize-at-run-time=io.ktor.util.NonceKt")

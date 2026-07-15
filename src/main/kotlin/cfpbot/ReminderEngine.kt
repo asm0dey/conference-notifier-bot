@@ -1,5 +1,6 @@
 package cfpbot
 
+import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -27,7 +28,7 @@ fun confKey(c: Conference): String = "${c.name}|${c.cfpEndDate}"
 // Token derives from name+cfpEndDate, so a conference changing its CFP deadline mints a new
 // token: old-token rows (directory/mute/sent_reminder) get pruned and the user is reminded again.
 fun confToken(confKey: String): String =
-    java.security.MessageDigest.getInstance("SHA-256")
+    MessageDigest.getInstance("SHA-256")
         .digest(confKey.toByteArray())
         .joinToString("") { "%02x".format(it) }
         .take(12)
