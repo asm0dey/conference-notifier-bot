@@ -132,4 +132,51 @@ class CheckTaskTest : StringSpec({
         repo.loadState().chats shouldBe setOf(2L)        // chat 1 pruned
         sent.toSet() shouldBe setOf(2L)                  // chat 2 still got delivered
     }
+
+    "skips a conference the chat muted, still delivers to other chats" {
+        val ds = memDs("checktask_mute"); runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.addChat(1L)
+        repo.addChat(2L)
+        // chat 1 muted KotlinConf ahead of time
+        repo.mute(1L, confToken("KotlinConf|5 June 2026"))
+
+        val sent = mutableListOf<Pair<Long, String>>()
+        val notifier = object : Notifier {
+            override suspend fun send(chatId: Long, text: String) { sent += chatId to text }
+            override suspend fun sendReminder(chatId: Long, text: String, stopToken: String): Long? {
+                sent += chatId to text
+                return chatId * 100 // deterministic fake message id
+            }
+        }
+        val task = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
+
+        runBlocking { task.run() }
+
+        sent.map { it.first }.toSet() shouldBe setOf(2L)          // chat 1 suppressed entirely
+        // chat 2 got both OPENED + CLOSING_SOON recorded for resolution
+        repo.tokenForMessage(2L, 200L) shouldBe confToken("KotlinConf|5 June 2026")
+    }
+
+    "prunes directory/mute/sent rows once a conference has closed" {
+        val ds = memDs("checktask_prune"); runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.addChat(1L)
+        val notifier = object : Notifier {
+            override suspend fun send(chatId: Long, text: String) {}
+            override suspend fun sendReminder(chatId: Long, text: String, stopToken: String) = 55L
+        }
+        // First run while the conf is open: records directory + sent_reminder, then mute it.
+        val open = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
+        runBlocking { open.run() }
+        repo.mute(1L, confToken("KotlinConf|5 June 2026"))
+        repo.loadMuted()[1L]!!.isEmpty() shouldBe false
+
+        // Later run after the deadline (5 June 2026): conf is closed -> pruned everywhere.
+        val closed = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 10) })
+        runBlocking { closed.run() }
+
+        repo.loadMuted() shouldBe emptyMap()
+        repo.mutedConfsFor(1L) shouldBe emptyList()
+    }
 })

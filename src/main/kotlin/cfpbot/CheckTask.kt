@@ -17,22 +17,30 @@ class CheckTask(
         val conferences = source.fetch()
         val state = repo.loadState()
         val (reminders, newState) = computeReminders(conferences, state, today)
+        val muted = repo.loadMuted()
 
         val blocked = mutableSetOf<Long>()
         for (reminder in reminders) {
+            val token = confToken(confKey(reminder.conference))
             for (chatId in state.chats) {
-                if (chatId !in blocked && !deliver(reminder, chatId)) blocked += chatId
+                if (chatId in blocked) continue
+                if (token in (muted[chatId] ?: emptySet())) continue
+                if (!deliver(reminder, chatId, token)) blocked += chatId
             }
         }
         repo.saveReminderState(newState.confs)
+        // Forget conferences that have closed: their tokens fall out of the open set.
+        repo.pruneTokens(newState.confs.keys.mapTo(mutableSetOf()) { confToken(it) })
     }
 
-    // Sends one reminder (text + optional location pin) to one chat. Returns true to keep the
-    // chat (success, or a transient failure we just drop), false if the chat blocked the bot —
-    // a 403 is permanent, so we prune it and the caller skips it for the rest of the run.
-    private suspend fun deliver(reminder: Reminder, chatId: Long): Boolean = try {
-        notifier.send(chatId, reminder.render())
+    // Sends one reminder (text + optional location pin) to one chat. Records the sent message so a
+    // reply /stop can map it back to this conference, and upserts the token->name directory.
+    // Returns true to keep the chat, false if the chat blocked the bot (403 -> pruned).
+    private suspend fun deliver(reminder: Reminder, chatId: Long, token: String): Boolean = try {
         val conf = reminder.conference
+        val messageId = notifier.sendReminder(chatId, reminder.render(), token)
+        repo.upsertConfDirectory(token, confKey(conf), conf.name)
+        if (messageId != null) repo.recordSentReminder(chatId, messageId, token)
         if (conf.hasMap()) {
             val coords = conf.coordinates!!
             notifier.sendLocation(chatId, coords.lat, coords.lon)
