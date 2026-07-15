@@ -3,9 +3,8 @@ package cfpbot
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
-import kotlinx.coroutines.runBlocking
+import io.kotest.matchers.shouldBe
 
 private fun drainerDs(name: String) = HikariDataSource(HikariConfig().apply {
     jdbcUrl = "jdbc:h2:mem:$name;DB_CLOSE_DELAY=-1"
@@ -28,7 +27,7 @@ class QueueDrainerTest : StringSpec({
             override suspend fun sendLocation(chatId: Long, lat: Double, lon: Double) { pins += lat to lon }
         }
 
-        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
+        QueueDrainer(queue, notifier, repo).drain()
 
         sent shouldContainExactlyInAnyOrder listOf("a", "c")     // only text rows -> send
         pins shouldContainExactlyInAnyOrder listOf(10.0 to 20.0) // location row -> pin only
@@ -50,7 +49,7 @@ class QueueDrainerTest : StringSpec({
             }
         }
 
-        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
+        QueueDrainer(queue, notifier, repo).drain()
 
         sent shouldBe listOf("jdd text")   // text delivered exactly once, no duplicate
         queue.count() shouldBe 1           // only the pin re-queued
@@ -66,14 +65,12 @@ class QueueDrainerTest : StringSpec({
         queue.enqueue(2L, "ok", null, null)     // chat 2 succeeds
 
         val sent = mutableListOf<String>()
-        val notifier = object : Notifier {
-            override suspend fun send(chatId: Long, text: String) {
-                if (chatId == 1L) throw RuntimeException("429")
-                sent += text
-            }
+        val notifier = Notifier { chatId, text ->
+            if (chatId == 1L) throw RuntimeException("429")
+            sent += text
         }
 
-        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
+        QueueDrainer(queue, notifier, repo).drain()
 
         sent shouldBe listOf("ok")
         queue.count() shouldBe 2
@@ -91,11 +88,9 @@ class QueueDrainerTest : StringSpec({
         // already at MAX-1 attempts: the next failure hits the cap and drops it
         queue.enqueue(1L, "poison", null, null, attempts = MAX_SEND_ATTEMPTS - 1)
 
-        val notifier = object : Notifier {
-            override suspend fun send(chatId: Long, text: String) { throw RuntimeException("429") }
-        }
+        val notifier = Notifier { _, _ -> throw RuntimeException("429") }
 
-        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
+        QueueDrainer(queue, notifier, repo).drain()
 
         queue.count() shouldBe 0            // dropped, not re-queued
     }
@@ -107,11 +102,9 @@ class QueueDrainerTest : StringSpec({
         val queue = SendQueueRepository(ds)
         queue.enqueue(1L, "blocked text", null, null)
 
-        val notifier = object : Notifier {
-            override suspend fun send(chatId: Long, text: String) { throw BotBlockedException(chatId) }
-        }
+        val notifier = Notifier { chatId, _ -> throw BotBlockedException(chatId) }
 
-        runBlocking { QueueDrainer(queue, notifier, repo).drain() }
+        QueueDrainer(queue, notifier, repo).drain()
 
         repo.loadState().chats shouldBe emptySet()   // chat pruned
         queue.count() shouldBe 0                      // item dropped, not re-queued

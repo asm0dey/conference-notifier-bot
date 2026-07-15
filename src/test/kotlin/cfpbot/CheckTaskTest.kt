@@ -3,13 +3,11 @@ package cfpbot
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldHaveSize
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.runBlocking
+import io.kotest.matchers.shouldBe
+import io.ktor.client.*
+import io.ktor.client.engine.mock.*
+import io.ktor.http.*
 import java.time.LocalDate
 
 class CheckTaskTest : StringSpec({
@@ -39,7 +37,7 @@ class CheckTaskTest : StringSpec({
         val notifier = Notifier { chatId, text -> sent += chatId to text }
         val task = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
 
-        runBlocking { task.run() }
+        task.run()
 
         // One OPENED + one CLOSING_SOON (4 days out), each to 2 chats = 4 sends.
         sent shouldHaveSize 4
@@ -57,9 +55,9 @@ class CheckTaskTest : StringSpec({
         val notifier = Notifier { chatId, text -> sent += chatId to text }
         val task = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
 
-        runBlocking { task.run() }
+        task.run()
         val afterFirst = sent.size
-        runBlocking { task.run() }
+        task.run()
         sent.size shouldBe afterFirst
     }
 
@@ -83,7 +81,7 @@ class CheckTaskTest : StringSpec({
         val task = CheckTask(sourceReturning(feedWithCoords), repo, notifier,
             clock = { LocalDate.of(2026, 6, 1) })
 
-        runBlocking { task.run() }
+        task.run()
 
         // OPENED + CLOSING_SOON both reference the same conf; both fire a pin to chat 1.
         locations.map { it.first }.toSet() shouldBe setOf(1L)
@@ -108,7 +106,7 @@ class CheckTaskTest : StringSpec({
         val task = CheckTask(sourceReturning(feed), repo, notifier,
             clock = { LocalDate.of(2026, 6, 1) })
 
-        runBlocking { task.run() }
+        task.run()
 
         locations shouldBe emptyList()
     }
@@ -127,9 +125,72 @@ class CheckTaskTest : StringSpec({
         }
         val task = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
 
-        runBlocking { task.run() }
+        task.run()
 
         repo.loadState().chats shouldBe setOf(2L)        // chat 1 pruned
         sent.toSet() shouldBe setOf(2L)                  // chat 2 still got delivered
+    }
+
+    "skips a conference the chat muted, still delivers to other chats" {
+        val ds = memDs("checktask_mute"); runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.addChat(1L)
+        repo.addChat(2L)
+        // chat 1 muted KotlinConf ahead of time
+        repo.mute(1L, confToken("KotlinConf|5 June 2026"))
+
+        val sent = mutableListOf<Pair<Long, String>>()
+        val notifier = object : Notifier {
+            override suspend fun send(chatId: Long, text: String) { sent += chatId to text }
+            override suspend fun sendReminder(chatId: Long, text: String, stopToken: String): Long {
+                sent += chatId to text
+                return chatId * 100 // deterministic fake message id
+            }
+        }
+        val task = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
+
+        task.run()
+
+        sent.map { it.first }.toSet() shouldBe setOf(2L)          // chat 1 suppressed entirely
+        // chat 2 got both OPENED + CLOSING_SOON recorded for resolution
+        repo.tokenForMessage(2L, 200L) shouldBe confToken("KotlinConf|5 June 2026")
+    }
+
+    "prunes directory/mute/sent rows once a conference has closed" {
+        val ds = memDs("checktask_prune"); runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.addChat(1L)
+        val notifier = object : Notifier {
+            override suspend fun send(chatId: Long, text: String) {}
+            override suspend fun sendReminder(chatId: Long, text: String, stopToken: String) = 55L
+        }
+        // First run while the conf is open: records directory + sent_reminder, then mute it.
+        val open = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
+        open.run()
+        repo.mute(1L, confToken("KotlinConf|5 June 2026"))
+        repo.loadMuted()[1L]!!.isEmpty() shouldBe false
+
+        // Later run after the deadline (5 June 2026): conf is closed -> pruned everywhere.
+        val closed = CheckTask(sourceReturning(feed), repo, notifier, clock = { LocalDate.of(2026, 6, 10) })
+        closed.run()
+
+        repo.loadMuted() shouldBe emptyMap()
+        repo.mutedConfsFor(1L) shouldBe emptyList()
+    }
+
+    "an empty-but-successful feed does not wipe existing mute state" {
+        val ds = memDs("checktask_empty_feed"); runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.upsertConfDirectory("t", "K|5 June 2026", "K")
+        repo.mute(1L, "t")
+        repo.recordSentReminder(1L, 10L, "t")
+
+        val notifier = Notifier { _, _ -> }
+        val task = CheckTask(sourceReturning("[]"), repo, notifier, clock = { LocalDate.of(2026, 6, 1) })
+
+        task.run()
+
+        repo.loadMuted()[1L] shouldBe setOf("t")
+        repo.tokenForMessage(1L, 10L) shouldBe "t"
     }
 })

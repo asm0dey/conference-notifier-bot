@@ -38,12 +38,12 @@ class SendQueueRepository(private val ds: DataSource) {
         // FOR UPDATE SKIP LOCKED must come AFTER LIMIT in H2.
         val claimSql =
             "SELECT id, chat_id, text, lat, lon, attempts FROM send_queue " +
-                whereClause + "ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED"
+                    whereClause + "ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED"
 
         ds.connection.use { conn ->
             conn.autoCommit = false
             try {
-                val item = conn.prepareStatement(claimSql).use { ps ->
+                @Suppress("SqlSourceToSinkFlow") val item = conn.prepareStatement(claimSql).use { ps ->
                     blocked.forEachIndexed { i, chatId -> ps.setLong(i + 1, chatId) }
                     ps.executeQuery().use { rs ->
                         if (!rs.next()) {

@@ -6,13 +6,13 @@ import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import kotlin.time.Duration.Companion.seconds
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.mock.MockEngine
-import io.ktor.client.engine.mock.respond
-import io.ktor.http.HttpStatusCode
+import io.ktor.client.*
+import io.ktor.client.engine.mock.*
+import io.ktor.http.*
 import java.time.LocalTime
+import kotlin.time.Duration.Companion.seconds
 
+@Suppress("unused")
 class SchedulerTest : StringSpec({
 
     "scheduler starts and stops cleanly against the DDL schema" {

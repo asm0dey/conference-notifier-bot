@@ -3,9 +3,9 @@ package cfpbot
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.matchers.shouldBe
-import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.shouldBe
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors

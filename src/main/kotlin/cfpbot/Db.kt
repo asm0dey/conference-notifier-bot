@@ -35,6 +35,28 @@ private val SCHEMA = listOf(
         attempts INT NOT NULL DEFAULT 0
     )
     """.trimIndent(),
+    """
+    CREATE TABLE IF NOT EXISTS conf_directory (
+        token    VARCHAR(16) PRIMARY KEY,
+        conf_key VARCHAR(512) NOT NULL,
+        name     VARCHAR(512) NOT NULL
+    )
+    """.trimIndent(),
+    """
+    CREATE TABLE IF NOT EXISTS muted_conf (
+        chat_id BIGINT      NOT NULL,
+        token   VARCHAR(16) NOT NULL,
+        PRIMARY KEY (chat_id, token)
+    )
+    """.trimIndent(),
+    """
+    CREATE TABLE IF NOT EXISTS sent_reminder (
+        chat_id    BIGINT      NOT NULL,
+        message_id BIGINT      NOT NULL,
+        token      VARCHAR(16) NOT NULL,
+        PRIMARY KEY (chat_id, message_id)
+    )
+    """.trimIndent(),
     // db-scheduler 16.x table (H2-compatible). The `priority` column + indexes
     // were added in db-scheduler 16 — canonical schema from the 16.x release.
     """
@@ -83,6 +105,115 @@ class StateRepository(private val ds: DataSource) {
             conn.prepareStatement("DELETE FROM registered_chat WHERE chat_id = ?").use { ps ->
                 ps.setLong(1, chatId)
                 ps.executeUpdate()
+            }
+        }
+    }
+
+    fun mute(chatId: Long, token: String) {
+        ds.connection.use { conn ->
+            conn.prepareStatement("MERGE INTO muted_conf (chat_id, token) VALUES (?, ?)").use { ps ->
+                ps.setLong(1, chatId); ps.setString(2, token); ps.executeUpdate()
+            }
+        }
+    }
+
+    fun unmute(chatId: Long, token: String) {
+        ds.connection.use { conn ->
+            conn.prepareStatement("DELETE FROM muted_conf WHERE chat_id = ? AND token = ?").use { ps ->
+                ps.setLong(1, chatId); ps.setString(2, token); ps.executeUpdate()
+            }
+        }
+    }
+
+    fun loadMuted(): Map<Long, Set<String>> {
+        val out = mutableMapOf<Long, MutableSet<String>>()
+        ds.connection.use { conn ->
+            conn.createStatement().use { st ->
+                st.executeQuery("SELECT chat_id, token FROM muted_conf").use { rs ->
+                    while (rs.next()) {
+                        out.getOrPut(rs.getLong("chat_id")) { mutableSetOf() } += rs.getString("token")
+                    }
+                }
+            }
+        }
+        return out
+    }
+
+    fun upsertConfDirectory(token: String, confKey: String, name: String) {
+        ds.connection.use { conn ->
+            conn.prepareStatement(
+                "MERGE INTO conf_directory (token, conf_key, name) VALUES (?, ?, ?)",
+            ).use { ps ->
+                ps.setString(1, token); ps.setString(2, confKey); ps.setString(3, name)
+                ps.executeUpdate()
+            }
+        }
+    }
+
+    fun recordSentReminder(chatId: Long, messageId: Long, token: String) {
+        ds.connection.use { conn ->
+            conn.prepareStatement(
+                "MERGE INTO sent_reminder (chat_id, message_id, token) VALUES (?, ?, ?)",
+            ).use { ps ->
+                ps.setLong(1, chatId); ps.setLong(2, messageId); ps.setString(3, token)
+                ps.executeUpdate()
+            }
+        }
+    }
+
+    fun tokenForMessage(chatId: Long, messageId: Long): String? =
+        ds.connection.use { conn ->
+            conn.prepareStatement(
+                "SELECT token FROM sent_reminder WHERE chat_id = ? AND message_id = ?",
+            ).use { ps ->
+                ps.setLong(1, chatId); ps.setLong(2, messageId)
+                ps.executeQuery().use { rs -> if (rs.next()) rs.getString("token") else null }
+            }
+        }
+
+    fun mutedConfsFor(chatId: Long): List<Pair<String, String>> {
+        val out = mutableListOf<Pair<String, String>>()
+        ds.connection.use { conn ->
+            conn.prepareStatement(
+                "SELECT m.token, d.name FROM muted_conf m " +
+                    "JOIN conf_directory d ON d.token = m.token WHERE m.chat_id = ?",
+            ).use { ps ->
+                ps.setLong(1, chatId)
+                ps.executeQuery().use { rs ->
+                    while (rs.next()) out += rs.getString("token") to rs.getString("name")
+                }
+            }
+        }
+        return out
+    }
+
+    fun pruneTokens(liveTokens: Set<String>) {
+        ds.connection.use { conn ->
+            conn.autoCommit = false
+            try {
+                if (liveTokens.isEmpty()) {
+                    conn.createStatement().use { st ->
+                        st.execute("DELETE FROM conf_directory")
+                        st.execute("DELETE FROM muted_conf")
+                        st.execute("DELETE FROM sent_reminder")
+                    }
+                } else {
+                    val placeholders = liveTokens.joinToString(",") { "?" }
+                    for (table in listOf("conf_directory", "muted_conf", "sent_reminder")) {
+                        @Suppress("SqlSourceToSinkFlow")
+                        conn.prepareStatement(
+                            "DELETE FROM $table WHERE token NOT IN ($placeholders)",
+                        ).use { ps ->
+                            liveTokens.forEachIndexed { i, t -> ps.setString(i + 1, t) }
+                            ps.executeUpdate()
+                        }
+                    }
+                }
+                conn.commit()
+            } catch (e: Exception) {
+                conn.rollback(); throw e
+            } finally {
+                conn.autoCommit = true
             }
         }
     }

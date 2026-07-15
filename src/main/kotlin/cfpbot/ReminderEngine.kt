@@ -1,5 +1,6 @@
 package cfpbot
 
+import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -23,6 +24,14 @@ data class BotState(val chats: Set<Long> = emptySet(), val confs: Map<String, Co
 data class EngineResult(val reminders: List<Reminder>, val newState: BotState)
 
 fun confKey(c: Conference): String = "${c.name}|${c.cfpEndDate}"
+
+// Token derives from name+cfpEndDate, so a conference changing its CFP deadline mints a new
+// token: old-token rows (directory/mute/sent_reminder) get pruned and the user is reminded again.
+fun confToken(confKey: String): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest(confKey.toByteArray())
+        .joinToString("") { "%02x".format(it) }
+        .take(12)
 
 fun computeReminders(
     conferences: List<Conference>,

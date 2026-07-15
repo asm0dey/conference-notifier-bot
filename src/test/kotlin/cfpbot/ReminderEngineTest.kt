@@ -1,8 +1,9 @@
 package cfpbot
 
 import io.kotest.core.spec.style.StringSpec
-import io.kotest.matchers.shouldBe
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import java.time.LocalDate
@@ -148,5 +149,16 @@ class ReminderEngineTest : StringSpec({
         result.map { it.conference.name } shouldBe listOf("Open")
         result.single().kind shouldBe ReminderKind.OPENED
         result.single().daysLeft shouldBe 4L
+    }
+
+    "confToken is deterministic and 12 hex chars" {
+        val k = confKey(Conference(name = "KotlinConf", cfpEndDate = "5 June 2026"))
+        confToken(k) shouldBe confToken(k)
+        confToken(k).length shouldBe 12
+        confToken(k).all { it in "0123456789abcdef" } shouldBe true
+    }
+
+    "confToken differs for different keys" {
+        confToken("A|2026") shouldNotBe confToken("B|2026")
     }
 })

@@ -63,4 +63,62 @@ class StateRepositoryTest : StringSpec({
 
         repo.loadState().chats shouldBe setOf(2L)
     }
+
+    "mute / loadMuted / unmute round-trip" {
+        val ds = memDataSource("mute1")
+        runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.mute(1L, "aaa")
+        repo.mute(1L, "bbb")
+        repo.mute(2L, "aaa")
+        repo.loadMuted() shouldBe mapOf(1L to setOf("aaa", "bbb"), 2L to setOf("aaa"))
+        repo.mute(1L, "aaa") // idempotent
+        repo.loadMuted()[1L] shouldBe setOf("aaa", "bbb")
+        repo.unmute(1L, "aaa")
+        repo.loadMuted()[1L] shouldBe setOf("bbb")
+    }
+
+    "sent_reminder resolves a message back to its token" {
+        val ds = memDataSource("mute2")
+        runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.recordSentReminder(7L, 100L, "tok1")
+        repo.tokenForMessage(7L, 100L) shouldBe "tok1"
+        repo.tokenForMessage(7L, 999L) shouldBe null
+        repo.recordSentReminder(7L, 100L, "tok2") // MERGE overwrites same (chat,msg)
+        repo.tokenForMessage(7L, 100L) shouldBe "tok2"
+    }
+
+    "mutedConfsFor joins directory for names" {
+        val ds = memDataSource("mute3")
+        runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.upsertConfDirectory("tok1", "KotlinConf|5 June 2026", "KotlinConf")
+        repo.upsertConfDirectory("tok2", "Devoxx|1 July 2026", "Devoxx")
+        repo.mute(5L, "tok1")
+        repo.mute(5L, "tok2")
+        repo.mutedConfsFor(5L).toSet() shouldBe setOf("tok1" to "KotlinConf", "tok2" to "Devoxx")
+        repo.mutedConfsFor(6L) shouldBe emptyList()
+    }
+
+    "pruneTokens deletes rows for closed confs across all tables" {
+        val ds = memDataSource("mute4")
+        runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.upsertConfDirectory("live", "L|2026", "Live")
+        repo.upsertConfDirectory("dead", "D|2026", "Dead")
+        repo.mute(1L, "live")
+        repo.mute(1L, "dead")
+        repo.recordSentReminder(1L, 10L, "live")
+        repo.recordSentReminder(1L, 11L, "dead")
+
+        repo.pruneTokens(setOf("live"))
+
+        repo.loadMuted()[1L] shouldBe setOf("live")
+        repo.tokenForMessage(1L, 11L) shouldBe null      // dead sent_reminder gone
+        repo.mutedConfsFor(1L) shouldBe listOf("live" to "Live") // dead directory gone
+
+        repo.pruneTokens(emptySet())                     // empty = prune everything
+        repo.loadMuted() shouldBe emptyMap()
+    }
 })

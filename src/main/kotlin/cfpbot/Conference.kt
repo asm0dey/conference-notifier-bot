@@ -3,7 +3,7 @@ package cfpbot
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
+import java.util.*
 
 @Serializable
 data class Coordinates(val lat: Double = 0.0, val lon: Double = 0.0)
