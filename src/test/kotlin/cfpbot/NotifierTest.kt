@@ -14,4 +14,12 @@ class NotifierTest : StringSpec({
         }
         sent shouldBe listOf("hi")
     }
+
+    "default sendReminder delegates to send and returns null" {
+        val sent = mutableListOf<Pair<Long, String>>()
+        val notifier = Notifier { chatId, text -> sent += chatId to text }
+        val id = kotlinx.coroutines.runBlocking { notifier.sendReminder(9L, "hi", "tok") }
+        id shouldBe null
+        sent shouldBe listOf(9L to "hi")
+    }
 })
