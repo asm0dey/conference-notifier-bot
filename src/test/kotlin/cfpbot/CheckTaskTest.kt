@@ -178,6 +178,27 @@ class CheckTaskTest : StringSpec({
         repo.mutedConfsFor(1L) shouldBe emptyList()
     }
 
+    "a run where every send fails leaves state unadvanced so the next run retries" {
+        val ds = memDs("checktask_allfail"); runDdl(ds)
+        val repo = StateRepository(ds)
+        repo.addChat(1L)
+        repo.addChat(2L)
+
+        // Simulates the observed outage: every send throws (e.g. a native-image
+        // SerializationException), so nothing reaches Telegram.
+        val failing = Notifier { _, _ -> throw RuntimeException("send outage") }
+        CheckTask(sourceReturning(feed), repo, failing, clock = { LocalDate.of(2026, 6, 1) }).run()
+
+        // State must NOT record the conf as announced — otherwise the reminder is lost forever.
+        repo.loadState().confs["KotlinConf|5 June 2026"] shouldBe null
+
+        // A later healthy run still delivers: the reminder was retried, not silently dropped.
+        val sent = mutableListOf<Long>()
+        val ok = Notifier { chatId, _ -> sent += chatId }
+        CheckTask(sourceReturning(feed), repo, ok, clock = { LocalDate.of(2026, 6, 1) }).run()
+        sent.toSet() shouldBe setOf(1L, 2L)
+    }
+
     "an empty-but-successful feed does not wipe existing mute state" {
         val ds = memDs("checktask_empty_feed"); runDdl(ds)
         val repo = StateRepository(ds)
