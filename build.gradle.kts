@@ -41,7 +41,20 @@ tasks.test {
     useJUnitPlatform()
 }
 
+// Prints the test runtime classpath so the GraalVM tracing agent can be run against cfpbot.AgentDriver
+// on a NIK JDK to regenerate native-image serializer metadata. See graalvmNative { agent } below.
+tasks.register("printTestCp") {
+    val cp = sourceSets["test"].runtimeClasspath
+    doLast { println(cp.asPath) }
+}
+
 graalvmNative {
+    // Tracing agent: `./gradlew -Pagent test` (on a NIK/GraalVM JDK) records the reflective
+    // serializer lookups the real telegram-bot send path needs, under build/native/agent-output/.
+    // Merge those into src/main/resources/.../reachability-metadata.json after any telegram-bot bump.
+    agent {
+        defaultMode.set("standard")
+    }
     // native-image runs from GRAALVM_HOME/JAVA_HOME (Liberica NIK); don't make the
     // plugin hunt for a GraalVM toolchain that would clash with jvmToolchain(21).
     toolchainDetection.set(false)

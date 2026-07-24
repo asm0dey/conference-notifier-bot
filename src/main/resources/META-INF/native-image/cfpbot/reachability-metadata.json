@@ -190,6 +190,23 @@
       ]
     },
     {
+      "type": "eu.vendeli.tgbot.types.keyboard.InlineKeyboardMarkup",
+      "fields": [
+        {
+          "name": "Companion"
+        }
+      ]
+    },
+    {
+      "type": "eu.vendeli.tgbot.types.keyboard.InlineKeyboardMarkup$Companion",
+      "methods": [
+        {
+          "name": "serializer",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "eu.vendeli.tgbot.types.options.GetUpdatesOptions",
       "fields": [
         {
