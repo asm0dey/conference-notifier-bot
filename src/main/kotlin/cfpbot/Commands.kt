@@ -64,7 +64,7 @@ suspend fun active(update: ProcessedUpdate) {
 }
 
 // 🔕 Stop button on a reminder: callback data "stop?token=<token>" -> mute this conf for this chat.
-@CommandHandler.CallbackQuery(["stop"])
+@CommandHandler.CallbackQuery(["stop"], autoAnswer = true)
 suspend fun stopCallback(token: String, update: ProcessedUpdate, bot: TelegramBot) {
     val chatId = update.getChat().id
     Registry.repo.mute(chatId, token)
@@ -72,7 +72,7 @@ suspend fun stopCallback(token: String, update: ProcessedUpdate, bot: TelegramBo
 }
 
 // 🔔 Resume button (from the /muted list): callback data "resume?token=<token>".
-@CommandHandler.CallbackQuery(["resume"])
+@CommandHandler.CallbackQuery(["resume"], autoAnswer = true)
 suspend fun resumeCallback(token: String, update: ProcessedUpdate, bot: TelegramBot) {
     val chatId = update.getChat().id
     Registry.repo.unmute(chatId, token)
