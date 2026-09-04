@@ -9,7 +9,7 @@ coroutines = "1.11.0"
 dbscheduler = "16.12.0"
 h2 = "2.4.240"
 hikari = "7.1.0"
-slf4j = "2.0.18"
+slf4j = "2.0.19"
 kotest = "6.2.3"
 graalvm-native = "1.1.6"
 
