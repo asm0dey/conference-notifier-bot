@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.4.10"
+kotlin = "2.4.20"
 ksp = "2.3.10"
 # On bump: regenerate native-image serializer metadata — see CLAUDE.md "Bumping telegram-bot".
 telegrambot = "9.6.0"
